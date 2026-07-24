@@ -1,0 +1,15 @@
+# Build and release outputs
+build/
+release/
+.deps/
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Java diagnostics
+hs_err_pid*
+replay_pid*

@@ -1,0 +1,13 @@
+* text=auto
+
+*.java text eol=lf
+*.pde text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.properties text eol=lf
+*.ps1 text eol=lf
+*.yml text eol=lf
+
+*.jar binary
+*.zip binary
+*.pdex binary

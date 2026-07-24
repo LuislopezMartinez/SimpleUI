@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and build tools
+        shell: pwsh
+        run: sdkmanager "platforms;android-33" "build-tools;33.0.3"
+
+      - name: Download Processing build dependencies
+        shell: pwsh
+        run: |
+          $dependencies = Join-Path $env:RUNNER_TEMP "simpleui-dependencies"
+          New-Item -ItemType Directory -Path $dependencies -Force | Out-Null
+
+          $desktopCore = Join-Path $dependencies "core-4.5.2.jar"
+          Invoke-WebRequest `
+            -Uri "https://repo1.maven.org/maven2/org/processing/core/4.5.2/core-4.5.2.jar" `
+            -OutFile $desktopCore
+
+          $androidModeZip = Join-Path $dependencies "AndroidMode.zip"
+          Invoke-WebRequest `
+            -Uri "https://github.com/processing/processing-android/releases/download/latest/AndroidMode.zip" `
+            -OutFile $androidModeZip
+          Expand-Archive -LiteralPath $androidModeZip -DestinationPath $dependencies
+
+          "SIMPLEUI_PROCESSING_DESKTOP_CORE=$desktopCore" | Out-File $env:GITHUB_ENV -Append
+          "SIMPLEUI_PROCESSING_ANDROID_CORE=$dependencies\AndroidMode\processing-core.zip" | Out-File $env:GITHUB_ENV -Append
+          "SIMPLEUI_ANDROID_API=$env:ANDROID_HOME\platforms\android-33\android.jar" | Out-File $env:GITHUB_ENV -Append
+          "SIMPLEUI_D8_JAR=$env:ANDROID_HOME\build-tools\33.0.3\lib\d8.jar" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Build, test and package
+        shell: pwsh
+        run: ./tools/build_release.ps1
+
+      - name: Upload release candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleUI-release-candidate
+          path: |
+            release/SimpleUI.zip
+            release/SimpleUI.txt
+            release/SimpleUI.pdex

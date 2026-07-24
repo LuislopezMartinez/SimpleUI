@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="Luis López Martínez">
+  <meta name="copyright" content="Copyright (c) 2026 Luis López Martínez">
+  <meta name="license" content="MIT">
+  <meta name="description" content="Manual completo de SimpleUI para Processing Desktop y Android">
+  <title>SimpleUI 0.5.1 · Manual y referencia</title>
+  <style>
+    :root {
+      --ink: #172033; --muted: #61708a; --line: #dce3ee; --paper: #fff;
+      --canvas: #f4f7fb; --nav: #10182a; --nav-2: #17223a; --blue: #2563eb;
+      --cyan: #0891b2; --green: #16875b; --amber: #a16207; --violet: #7c3aed;
+      --code: #111827; --code-ink: #e5edf8; --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; font: 15.5px/1.65 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--canvas); }
+    button, input { font: inherit; }
+    [hidden] { display: none !important; }
+    .layout { min-height: 100vh; display: grid; grid-template-columns: 310px minmax(0, 1fr); }
+    aside { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--nav); color: #dce7fb; border-right: 1px solid #26334e; }
+    .brand { position: sticky; top: 0; z-index: 3; padding: 24px 20px 16px; background: linear-gradient(180deg, var(--nav) 85%, transparent); }
+    .brand h1 { margin: 0; color: #fff; font-size: 25px; letter-spacing: -.03em; }
+    .brand p { margin: 2px 0 16px; color: #9fb0cf; font-size: 13px; }
+    .search { width: 100%; border: 1px solid #354564; border-radius: 9px; padding: 10px 12px; color: #fff; background: #0a1120; outline: none; }
+    .search:focus { border-color: #67a4ff; box-shadow: 0 0 0 3px #2563eb33; }
+    nav { padding: 0 12px 28px; }
+    .nav-group { margin-top: 17px; }
+    .nav-group h2 { margin: 0 8px 6px; color: #8294b5; font-size: 11px; letter-spacing: .11em; text-transform: uppercase; }
+    .nav-item { width: 100%; display: flex; align-items: center; gap: 9px; border: 0; border-radius: 8px; padding: 8px 10px; color: #c9d5ea; background: transparent; cursor: pointer; text-align: left; }
+    .nav-item:hover { background: var(--nav-2); color: #fff; }
+    .nav-item.active { color: #fff; background: #2563eb; }
+    .nav-item small { margin-left: auto; color: inherit; opacity: .68; font-size: 10px; }
+    .no-results { display: none; margin: 20px; color: #9fb0cf; }
+    main { min-width: 0; padding: 42px clamp(24px, 5vw, 74px) 80px; }
+    .page { display: none; max-width: 1100px; margin: 0 auto; animation: enter .18s ease-out; }
+    .page.active { display: block; }
+    @keyframes enter { from { opacity: .4; transform: translateY(4px); } }
+    .eyebrow { color: var(--blue); font-weight: 750; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; }
+    h1, h2, h3 { line-height: 1.2; letter-spacing: -.025em; }
+    .page > h1 { margin: 7px 0 9px; font-size: clamp(30px, 5vw, 48px); }
+    h2 { margin: 32px 0 12px; font-size: 24px; }
+    h3 { margin: 22px 0 8px; font-size: 18px; }
+    p { margin: 8px 0 14px; }
+    .lead { max-width: 780px; color: var(--muted); font-size: 18px; }
+    .badges { display: flex; flex-wrap: wrap; gap: 7px; margin: 15px 0 24px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 700; }
+    .both { color: #086b49; background: #dff8ec; }
+    .desktop { color: #174ea6; background: #e3efff; }
+    .android { color: #347346; background: #e5f6e8; }
+    .core { color: #6d28d9; background: #eee7ff; }
+    .advanced { color: #8a4b08; background: #fff1d6; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 13px; margin: 20px 0; }
+    .card, .callout { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); padding: 18px; box-shadow: 0 3px 14px #18243c0a; }
+    .card h3 { margin-top: 0; }
+    .card p:last-child, .callout p:last-child { margin-bottom: 0; }
+    .callout { border-left: 4px solid var(--blue); margin: 18px 0; }
+    .callout.warning { border-left-color: #d97706; background: #fffaf0; }
+    .callout.good { border-left-color: var(--green); background: #f2fbf7; }
+    code { border-radius: 5px; padding: .12em .35em; color: #b4234f; background: #f0f3f8; font: .91em/1.5 "Cascadia Code", Consolas, monospace; }
+    .code-wrap { position: relative; margin: 13px 0 20px; }
+    pre { margin: 0; overflow: auto; border: 1px solid #26344c; border-radius: 11px; padding: 18px; color: var(--code-ink); background: var(--code); box-shadow: inset 0 1px #ffffff0d; }
+    pre code { padding: 0; color: inherit; background: transparent; font-size: 13.5px; }
+    .copy { position: absolute; top: 8px; right: 8px; border: 1px solid #42516c; border-radius: 6px; padding: 4px 8px; color: #dce7fb; background: #1d293d; cursor: pointer; font-size: 11px; }
+    .copy:hover { background: #293a56; }
+    .signature { border-left: 3px solid var(--violet); }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 22px; background: var(--paper); }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { color: #44516a; background: #eef3f9; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    td:first-child code { white-space: nowrap; }
+    .api { display: grid; gap: 8px; margin: 11px 0 20px; }
+    .api-row { display: grid; grid-template-columns: minmax(235px, .9fr) minmax(260px, 1.4fr); gap: 16px; border-bottom: 1px solid var(--line); padding: 8px 2px 10px; }
+    .api-row:last-child { border-bottom: 0; }
+    .api-row p { margin: 0; color: var(--muted); }
+    .event { color: #8a4b08; background: #fff1d6; }
+    .event-list code { color: #825000; }
+    ul, ol { padding-left: 22px; }
+    kbd { border: 1px solid #bdc8d8; border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; background: #fff; }
+    .platform-table td:not(:first-child), .platform-table th:not(:first-child) { text-align: center; }
+    .yes { color: var(--green); font-weight: 800; }
+    .no { color: #9b2430; font-weight: 800; }
+    .menu-toggle { display: none; position: fixed; z-index: 10; top: 12px; left: 12px; border: 0; border-radius: 8px; padding: 8px 11px; color: #fff; background: var(--nav); }
+    footer { margin-top: 48px; border-top: 1px solid var(--line); padding-top: 18px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 820px) {
+      .layout { display: block; }
+      aside { position: fixed; z-index: 8; left: 0; width: min(330px, 88vw); transform: translateX(-102%); transition: transform .2s; box-shadow: 10px 0 40px #0b1225aa; }
+      body.menu-open aside { transform: translateX(0); }
+      body.menu-open .menu-toggle { left: calc(min(330px, 88vw) - 94px); background: #263653; }
+      .menu-toggle { display: block; }
+      main { padding: 66px 18px 55px; }
+      .api-row { grid-template-columns: 1fr; gap: 4px; }
+      .table-scroll { overflow-x: auto; }
+    }
+    @media print {
+      aside, .menu-toggle, .copy { display: none !important; }
+      .layout { display: block; }
+      main { padding: 0; }
+      .page { display: block !important; break-before: page; max-width: none; }
+      .page:first-child { break-before: auto; }
+      pre { white-space: pre-wrap; color: #111; background: #f3f4f6; border-color: #ccc; }
+    }
+  </style>
+</head>
+<body>
+  <button class="menu-toggle" aria-label="Abrir índice" aria-expanded="false">☰ Índice</button>
+  <div class="layout">
+    <aside aria-label="Índice de la documentación">
+      <div class="brand">
+        <h1>SimpleUI</h1>
+        <p>Processing Desktop + Android · v0.5.1</p>
+        <input class="search" id="search" type="search" placeholder="Buscar clase o concepto…" aria-label="Buscar en la documentación">
+      </div>
+      <nav id="nav">
+        <div class="nav-group"><h2>Introducción</h2>
+          <button class="nav-item active" data-page="inicio">Presentación <small>01</small></button>
+          <button class="nav-item" data-page="instalacion">Instalación y arranque <small>02</small></button>
+          <button class="nav-item" data-page="eventos">Eventos automáticos <small>03</small></button>
+          <button class="nav-item" data-page="portabilidad">Desktop y Android <small>04</small></button>
+        </div>
+        <div class="nav-group"><h2>Fundamentos</h2>
+          <button class="nav-item" data-page="simpleui">SimpleUI <small>API</small></button>
+          <button class="nav-item" data-page="resolucion">Resolución y escala</button>
+          <button class="nav-item" data-page="uielement">UIElement <small>base</small></button>
+          <button class="nav-item" data-page="tema">Temas y configuración</button>
+        </div>
+        <div class="nav-group"><h2>Controles</h2>
+          <button class="nav-item" data-page="button">UIButton · UIImageButton</button>
+          <button class="nav-item" data-page="label">UILabel · UIIndicator</button>
+          <button class="nav-item" data-page="checkbox">UICheckbox · UISwitch</button>
+          <button class="nav-item" data-page="slider">UISlider · UIProgressBar</button>
+          <button class="nav-item" data-page="dropdown">UIDropdown · UITabs</button>
+          <button class="nav-item" data-page="list">UIList · UITable</button>
+          <button class="nav-item" data-page="text">UITextField · UITextArea</button>
+          <button class="nav-item" data-page="number">UINumberField</button>
+          <button class="nav-item" data-page="panel">UIPanel</button>
+          <button class="nav-item" data-page="chat">chatArea</button>
+          <button class="nav-item" data-page="signal">UISignalMeter</button>
+        </div>
+        <div class="nav-group"><h2>Interfaz avanzada</h2>
+          <button class="nav-item" data-page="views">UIView · UIViewManager</button>
+          <button class="nav-item" data-page="modal">Modales</button>
+          <button class="nav-item" data-page="calendar">UICalendar</button>
+          <button class="nav-item" data-page="datetime">Fechas y tiempo</button>
+        </div>
+        <div class="nav-group"><h2>SimpleCore</h2>
+          <button class="nav-item" data-page="core">Core</button>
+          <button class="nav-item" data-page="task">Task</button>
+        </div>
+        <div class="nav-group"><h2>Consulta</h2>
+          <button class="nav-item" data-page="ejemplos">Ejemplos didácticos</button>
+          <button class="nav-item" data-page="catalogo">Catálogo completo</button>
+          <button class="nav-item" data-page="recetas">Recetas y buenas prácticas</button>
+          <button class="nav-item" data-page="licencia">Licencia MIT</button>
+        </div>
+        <p class="no-results" id="noResults">No hay coincidencias.</p>
+      </nav>
+    </aside>
+
+    <main>
+      <section class="page active" id="inicio" data-search="presentacion introduccion simpleui processing desktop android biblioteca libreria">
+        <div class="eyebrow">Manual docente · versión 0.5.1</div>
+        <h1>SimpleUI para Processing</h1>
+        <p class="lead">Una única librería para construir interfaces gráficas en proyectos de Processing Desktop y Processing for Android, acompañada de un calendario y del motor de tareas SimpleCore.</p>
+        <div class="callout good"><strong>Autoría.</strong> SimpleUI y SimpleCore han sido diseñadas y desarrolladas por <strong>Luis López Martínez</strong> y se distribuyen bajo licencia MIT.</div>
+        <div class="badges"><span class="badge both">✓ Desktop y Android</span><span class="badge core">SimpleCore incluido</span><span class="badge advanced">Licencia MIT</span></div>
+        <div class="cards">
+          <div class="card"><h3>Una API reconocible</h3><p>Botones, etiquetas, listas, tablas, campos de texto, calendarios y vistas comparten una estructura y un sistema de eventos coherentes.</p></div>
+          <div class="card"><h3>Sketches limpios</h3><p>La librería registra automáticamente los eventos de ratón, toque y teclado. El sketch conserva únicamente su lógica y el dibujo.</p></div>
+          <div class="card"><h3>Dos plataformas</h3><p>El código se mantiene casi idéntico. Solo cambia el import: <code>simpleui.desktop.*</code> o <code>simpleui.android.*</code>.</p></div>
+          <div class="card"><h3>Tareas independientes</h3><p><code>simplecore.*</code> proporciona tareas con ciclo de vida, prioridad, señales y representación gráfica opcional.</p></div>
+        </div>
+        <h2>Modelo mental</h2>
+        <ol><li>Se inicializa <code>SimpleUI</code> con el sketch.</li><li>Se crean controles y se añaden al registro global.</li><li>Un único <code>UIEventHandler</code> recibe las acciones del usuario.</li><li><code>updateAndDrawUI()</code> actualiza y dibuja la interfaz en cada fotograma.</li></ol>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>import simpleui.desktop.*; // En Android: import simpleui.android.*;
+
+UIButton boton;
+
+void setup() {
+  size(640, 360);
+  SimpleUI.initUI(this, "SansSerif", 18);
+  boton = new UIButton("saludar", 30, 40, 180, 48, "Saludar", 18);
+  SimpleUI.addUIElement(boton);
+}
+
+void draw() {
+  background(SimpleUI.currentTheme.backgroundColor);
+  SimpleUI.updateAndDrawUI();
+}</code></pre></div>
+        <div class="callout good"><strong>Objetivo pedagógico.</strong> El alumno puede empezar con un botón y un evento, y avanzar después hacia colecciones, vistas, calendarios y tareas sin cambiar de paradigma.</div>
+      </section>
+
+      <section class="page" id="instalacion" data-search="instalacion jar import setup initui draw processing libraries">
+        <div class="eyebrow">Primeros pasos</div><h1>Instalación y arranque</h1>
+        <div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <h2>Instalar</h2><p>Copia la carpeta completa <code>SimpleUI</code> dentro de la carpeta <code>libraries</code> del sketchbook de Processing. El archivo cargado por Processing es <code>SimpleUI/library/SimpleUI.jar</code>. Reinicia el IDE después de instalar o actualizar la librería.</p>
+        <h2>Elegir el import</h2>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>// Processing Desktop
+import simpleui.desktop.*;
+
+// Processing for Android
+import simpleui.android.*;
+
+// SimpleCore es común a las dos plataformas
+import simplecore.*;</code></pre></div>
+        <h2>Esqueleto mínimo</h2>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>import simpleui.desktop.*;
+
+void settings() {
+  size(800, 600);
+}
+
+void setup() {
+  SimpleUI.initUI(this, "SansSerif", 18);
+  SimpleUI.setMode(800, 600);
+}
+
+void draw() {
+  background(SimpleUI.currentTheme.backgroundColor);
+  SimpleUI.updateAndDrawUI();
+}</code></pre></div>
+        <div class="callout"><strong><code>setMode(anchoDiseño, altoDiseño)</code></strong> define la resolución virtual completa. SimpleUI calcula la escala y transforma tanto el dibujo como la entrada del ratón o la pantalla táctil.</div>
+        <h2>Orden de dibujo</h2><p><code>updateAndDrawUI()</code> debe ejecutarse después del fondo y del contenido que tenga que quedar detrás de la interfaz. Si necesitas separar ambas fases, utiliza <code>updateUI()</code> y <code>drawUI()</code>.</p>
+      </section>
+
+      <section class="page" id="eventos" data-search="eventos mouse touch keyboard automaticos handler clicked changed submitted dateSelected">
+        <div class="eyebrow">Arquitectura</div><h1>Eventos automáticos</h1>
+        <div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <p class="lead"><code>initUI()</code> instala un puente de eventos mediante el ciclo de vida de Processing. No es necesario declarar <code>mousePressed()</code>, <code>mouseDragged()</code>, <code>mouseReleased()</code>, <code>keyPressed()</code> ni <code>keyTyped()</code> en el sketch.</p>
+        <h2>Recibir eventos</h2>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>SimpleUI.setUIEventHandler(new UIEventHandler() {
+  public void onUIEvent(UIElement element, String action, Object data) {
+    println(element.id + " → " + action + " → " + data);
+
+    if (element.id.equals("guardar") && action.equals("clicked")) {
+      guardarDatos();
+    }
+  }
+});</code></pre></div>
+        <div class="table-scroll"><table><thead><tr><th>Control</th><th>Acción</th><th>Contenido de <code>data</code></th></tr></thead><tbody>
+          <tr><td>UIButton</td><td><code>clicked</code></td><td><code>null</code></td></tr><tr><td>UICheckbox / UISwitch</td><td><code>changed</code></td><td><code>boolean</code></td></tr>
+          <tr><td>UIDropdown</td><td><code>changed</code></td><td>opción seleccionada</td></tr><tr><td>UISlider</td><td><code>changed</code></td><td><code>float</code></td></tr>
+          <tr><td>UIList</td><td><code>itemSelected</code></td><td>texto seleccionado</td></tr><tr><td>UITable</td><td><code>rowSelected</code></td><td><code>String[]</code></td></tr>
+          <tr><td>UITabs</td><td><code>tabChanged</code></td><td>etiqueta seleccionada</td></tr><tr><td>Campos</td><td><code>changed</code>, <code>submitted</code></td><td>texto o número</td></tr>
+          <tr><td>UICalendar</td><td><code>dateSelected</code></td><td><code>UICalendarSelection</code></td></tr>
+        </tbody></table></div>
+        <h2>Control manual y teclado Android</h2><div class="api">
+          <div class="api-row"><code>setAutomaticEventHandling(false)</code><p>Desactiva el puente automático si una integración avanzada necesita reenviar los eventos manualmente.</p></div>
+          <div class="api-row"><code>setKeyEventInterceptor(interceptor)</code><p>Permite consumir una tecla antes de que llegue a SimpleUI; es útil para la tecla Atrás de Android.</p></div>
+          <div class="api-row"><code>detach()</code><p>Desregistra el puente y libera la referencia al sketch. Normalmente se ejecuta automáticamente en <code>dispose</code>.</p></div>
+        </div>
+        <div class="callout warning"><strong>No mezcles ambos modelos.</strong> Si el puente automático está activo, no reenvíes también los eventos desde funciones del sketch o cada interacción podría procesarse dos veces.</div>
+      </section>
+
+      <section class="page" id="portabilidad" data-search="compatibilidad portabilidad desktop android diferencias paquete teclado signal meter slider table tabs">
+        <div class="eyebrow">Compatibilidad</div><h1>Desktop y Android</h1>
+        <p class="lead">Las dos implementaciones viven en el mismo JAR, pero en paquetes separados para evitar dependencias Android al compilar un sketch Desktop.</p>
+        <div class="table-scroll"><table class="platform-table"><thead><tr><th>Capacidad</th><th>Desktop</th><th>Android</th></tr></thead><tbody>
+          <tr><td>Controles, eventos, vistas y calendario</td><td class="yes">Sí</td><td class="yes">Sí</td></tr><tr><td>SimpleCore</td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
+          <tr><td>Teclado nativo y ajuste al teclado virtual</td><td>Teclado Processing</td><td class="yes">Sí</td></tr><tr><td><code>UISignalMeter</code></td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
+          <tr><td><code>UIRect</code></td><td class="yes">Sí</td><td class="yes">Sí</td></tr><tr><td>Footer y recibo de lectura en <code>chatArea</code></td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
+        </tbody></table></div>
+        <h2>Contrato común desde 0.5.0</h2>
+        <ul><li><strong>Controles y modelos:</strong> todas las clases ofrecen los mismos constructores y métodos públicos en los dos paquetes.</li><li><strong>Resolución virtual:</strong> <code>setMode()</code>, <code>UIScaleMode</code> y las conversiones de coordenadas funcionan igual en Desktop y Android.</li><li><strong>UISwitch:</strong> ofrece una selección booleana compacta y emite <code>changed</code>.</li><li><strong>UIDropdown:</strong> emite <code>changed</code>.</li><li><strong>UISlider:</strong> emite <code>changed</code> durante el movimiento y <code>released</code> al terminar.</li><li><strong>Modales:</strong> admiten tanto <code>actionId</code> con handler como callbacks <code>Runnable</code>.</li><li><strong>chatArea:</strong> admite footer y recibo de lectura en ambas plataformas.</li></ul>
+        <div class="callout good"><strong>Portabilidad directa:</strong> el código de controles puede trasladarse cambiando únicamente el import. Solo los servicios del sistema Android —Activity, teclado virtual y pantalla activa— permanecen específicos de plataforma.</div>
+      </section>
+
+      <section class="page" id="simpleui" data-search="simpleui api init add remove clear update draw modal scale alpha theme global">
+        <div class="eyebrow">Clase coordinadora</div><h1>SimpleUI</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge advanced">Métodos estáticos</span></div>
+        <p><code>SimpleUI</code> mantiene el host de Processing, la colección de controles, el tema, la escala, los estados de interacción y el receptor global de eventos.</p>
+        <h2>API de uso habitual</h2><div class="api">
+          <div class="api-row"><code>initUI(this, fuente, tamaño)</code><p>Conecta el sketch, crea la fuente, carga el tema y registra los eventos.</p></div>
+          <div class="api-row"><code>setMode(ancho, alto)</code><p>Define una resolución virtual y usa el modo proporcional <code>FIT</code>.</p></div>
+          <div class="api-row"><code>setMode(ancho, alto, UIScaleMode)</code><p>Elige entre <code>FIT</code>, <code>FILL</code> y <code>RESPONSIVE</code>.</p></div>
+          <div class="api-row"><code>getLogicalWidth() / getLogicalHeight()</code><p>Devuelve el área disponible en coordenadas de diseño.</p></div>
+          <div class="api-row"><code>addUIElement(elemento)</code><p>Añade un control al registro global y al orden de dibujo.</p></div>
+          <div class="api-row"><code>getUIElement(id)</code><p>Busca un control por identificador; devuelve <code>null</code> si no existe.</p></div>
+          <div class="api-row"><code>removeUIElement(id)</code><p>Retira el control indicado y devuelve si fue encontrado.</p></div>
+          <div class="api-row"><code>clearUIElements()</code><p>Elimina todos los controles y limpia estados de interacción.</p></div>
+          <div class="api-row"><code>updateAndDrawUI()</code><p>Sincroniza, actualiza gestos y dibuja controles, menús, inputs y modales.</p></div>
+          <div class="api-row"><code>setUIEventHandler(handler)</code><p>Registra el receptor global de eventos.</p></div>
+          <div class="api-row"><code>setTheme(UIColorTheme.DARK)</code><p>Cambia entre tema oscuro y claro.</p></div>
+          <div class="api-row"><code>setUIAlpha(alpha)</code><p>Define opacidad global entre 0 y 255.</p></div>
+          <div class="api-row"><code>enableAllElements() / disableAllElements()</code><p>Activa o desactiva todos los controles registrados.</p></div>
+          <div class="api-row"><code>getUIToday()</code><p>Devuelve la fecha local actual como <code>UIDate</code>.</p></div>
+        </div>
+        <h2>Estado público útil</h2><p><code>currentTheme</code>, <code>uiScale</code>, <code>scaleMode</code>, <code>designWidth</code>, <code>designHeight</code>, <code>logicalWidth</code>, <code>logicalHeight</code>, <code>viewportOffsetX</code>, <code>viewportOffsetY</code>, <code>modeConfigured</code>, <code>uiElements</code>, <code>activeDropdown</code>, <code>activeTextField</code> y <code>activeUIModal</code> permiten inspección avanzada. Para enseñanza inicial es preferible usar los métodos de alto nivel.</p>
+        <p><code>SimpleUI.LIBRARY_AUTHOR</code> devuelve <code>"Luis lopez martinez"</code> y <code>SimpleUI.LIBRARY_LICENSE</code> devuelve <code>"MIT"</code>. Las mismas constantes están disponibles en <code>simplecore.Core</code>.</p>
+        <div class="callout"><strong>Métodos internos.</strong> Las funciones de dibujo delegadas, resolución de gestos, búsqueda de elementos y <code>handleUI…()</code> son públicas por la forma en que se genera la librería, pero pertenecen a la infraestructura. No suelen llamarse desde un sketch.</div>
+      </section>
+
+      <section class="page" id="resolucion" data-search="resolucion virtual escala setmode fit fill responsive viewport coordenadas resize orientation">
+        <div class="eyebrow">Sistema de coordenadas</div><h1>Resolución virtual y escala</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge advanced">Nuevo en 0.5.0</span></div>
+        <p class="lead">Diseña una sola vez con una resolución lógica —por ejemplo 1280 × 720— y deja que SimpleUI adapte dibujo, controles, modales y entrada a la ventana o pantalla real.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>SimpleUI.initUI(this, "SansSerif", 18);
+SimpleUI.setMode(1280, 720, UIScaleMode.RESPONSIVE);
+
+void draw() {
+  background(SimpleUI.currentTheme.backgroundColor);
+  SimpleUI.updateAndDrawUI();
+}</code></pre></div>
+        <h2>Modos disponibles</h2>
+        <div class="table-scroll"><table><thead><tr><th>Modo</th><th>Comportamiento</th><th>Uso recomendado</th></tr></thead><tbody>
+          <tr><td><code>FIT</code></td><td>Conserva la proporción, muestra toda la resolución de diseño y centra el contenido. Puede dejar bandas libres.</td><td>Interfaces de tamaño fijo que nunca deben recortarse.</td></tr>
+          <tr><td><code>FILL</code></td><td>Conserva la proporción y llena toda la superficie. El exceso queda fuera del viewport.</td><td>Fondos o experiencias donde se admite recorte.</td></tr>
+          <tr><td><code>RESPONSIVE</code></td><td>Usa la escala de <code>FIT</code>, pero expone el espacio sobrante como coordenadas lógicas adicionales.</td><td>Ventanas redimensionables y distintas relaciones de aspecto en Android.</td></tr>
+        </tbody></table></div>
+        <div class="callout good"><strong>Modo predeterminado:</strong> <code>setMode(1280, 720)</code> equivale a <code>setMode(1280, 720, UIScaleMode.FIT)</code>.</div>
+        <h2>API del viewport</h2><div class="api">
+          <div class="api-row"><code>getLogicalWidth() / getLogicalHeight()</code><p>Dimensiones utilizables por el layout. En <code>RESPONSIVE</code> pueden superar la resolución base.</p></div>
+          <div class="api-row"><code>screenToDesignX(x) / screenToDesignY(y)</code><p>Convierte una coordenada física de la ventana a coordenadas lógicas.</p></div>
+          <div class="api-row"><code>designToScreenX(x) / designToScreenY(y)</code><p>Convierte una coordenada lógica a píxeles físicos.</p></div>
+          <div class="api-row"><code>updateViewport()</code><p>Recalcula manualmente escala y viewport. La actualización normal ya lo hace automáticamente.</p></div>
+        </div>
+        <h2>Estado resuelto del viewport</h2>
+        <div class="table-scroll"><table><thead><tr><th>Campo</th><th>Contenido</th></tr></thead><tbody>
+          <tr><td><code>designWidth / designHeight</code></td><td>Resolución virtual solicitada mediante <code>setMode()</code>.</td></tr>
+          <tr><td><code>logicalWidth / logicalHeight</code></td><td>Área lógica resuelta. Para código de aplicación se recomiendan los getters equivalentes.</td></tr>
+          <tr><td><code>uiScale</code></td><td>Factor aplicado a dibujo e interacción.</td></tr>
+          <tr><td><code>viewportOffsetX / viewportOffsetY</code></td><td>Desplazamiento físico, en píxeles de pantalla, usado para centrar <code>FIT</code> o recortar <code>FILL</code>.</td></tr>
+          <tr><td><code>scaleMode</code></td><td>Modo <code>UIScaleMode</code> actualmente activo.</td></tr>
+          <tr><td><code>modeConfigured</code></td><td>Indica si ya se ha definido una resolución virtual.</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>Campos de consulta.</strong> Aunque son públicos, trátalos como valores resueltos de solo lectura. Configura el sistema mediante <code>setMode()</code> y consulta las dimensiones mediante sus getters.</div>
+        <h2>Layout adaptable</h2><p>SimpleUI escala automáticamente cada control, pero no decide cómo repartir el espacio adicional de <code>RESPONSIVE</code>. Cuando cambien <code>getLogicalWidth()</code> o <code>getLogicalHeight()</code>, usa <code>setPosition()</code> y <code>setSize()</code> para ampliar tablas, paneles o áreas gráficas.</p>
+        <div class="callout warning"><strong>Coordenadas personalizadas.</strong> Si dibujas o compruebas impactos fuera de los controles SimpleUI, trabaja en coordenadas lógicas o usa las funciones de conversión. No dividas únicamente por <code>uiScale</code>: los modos centrados también tienen desplazamiento de viewport.</div>
+      </section>
+
+      <section class="page" id="uielement" data-search="uielement base posicion tamaño visible enabled anchored contains point herencia">
+        <div class="eyebrow">Clase base</div><h1>UIElement</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge advanced">Clase abstracta</span></div>
+        <div class="code-wrap signature"><pre><code>UIElement(String id, int x, int y, int width, int height)</code></pre></div>
+        <p>Es la base de todos los controles. Define posición, dimensiones, identificador, visibilidad, activación y anclaje.</p>
+        <div class="api"><div class="api-row"><code>setPosition(x, y)</code><p>Mueve el control.</p></div><div class="api-row"><code>setSize(w, h)</code><p>Cambia sus dimensiones.</p></div><div class="api-row"><code>setVisible(boolean)</code><p>Controla si se dibuja y participa en la interfaz.</p></div><div class="api-row"><code>setEnabled(boolean)</code><p>Controla si acepta interacción.</p></div><div class="api-row"><code>setAnchored(boolean)</code><p>Marca un elemento fijo frente al desplazamiento global, especialmente útil en Android.</p></div><div class="api-row"><code>containsPoint(px, py)</code><p>Comprueba si unas coordenadas están dentro del rectángulo.</p></div><div class="api-row"><code>hasScrollableOverflow()</code><p>Indica si el control puede consumir un gesto vertical interno.</p></div></div>
+        <div class="callout warning">Los campos <code>x</code>, <code>y</code>, <code>width</code>, <code>height</code>, <code>id</code>, <code>isVisible</code> e <code>isEnabled</code> son públicos. Para código más legible, usa sus setters cuando existan.</div>
+      </section>
+
+      <section class="page" id="tema" data-search="tema color light dark uicolortheme uiconfig background surface text accent border placeholder">
+        <div class="eyebrow">Apariencia</div><h1>Temas y configuración</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <p><code>UIColorTheme</code> contiene los valores <code>DARK</code> y <code>LIGHT</code>. <code>UIConfig</code> representa los seis colores resueltos del tema.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>SimpleUI.setTheme(UIColorTheme.DARK);
+background(SimpleUI.currentTheme.backgroundColor);
+
+int acento = SimpleUI.currentTheme.accentColor;
+int texto   = SimpleUI.currentTheme.textColor;</code></pre></div>
+        <table><thead><tr><th>Campo de UIConfig</th><th>Uso</th></tr></thead><tbody><tr><td><code>backgroundColor</code></td><td>Fondo general del sketch.</td></tr><tr><td><code>surfaceColor</code></td><td>Superficies de controles y paneles.</td></tr><tr><td><code>textColor</code></td><td>Texto principal.</td></tr><tr><td><code>accentColor</code></td><td>Selección, progreso y énfasis.</td></tr><tr><td><code>borderColor</code></td><td>Bordes y separadores.</td></tr><tr><td><code>placeholderColor</code></td><td>Texto orientativo de inputs.</td></tr></tbody></table>
+        <p>Varios controles proporcionan <code>setColors()</code>, <code>setTextColor()</code> o <code>setBorderColor()</code> para sobrescribir localmente el tema.</p>
+      </section>
+
+      <section class="page" id="button" data-search="uibutton uiimagebutton boton imagen clicked setlabel colors pressed">
+        <div class="eyebrow">Controles</div><h1>UIButton y UIImageButton</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UIButton(id, x, y, w, h, label, fontSize)
+UIImageButton(id, x, y, w, h, PImage imagen)
+UIImageButton(id, x, y, w, h, PImage imagen, imageW, imageH)</code></pre></div>
+        <p><code>UIButton</code> representa una acción textual. <code>UIImageButton</code> hereda su comportamiento y reemplaza la presentación por una imagen.</p>
+        <div class="api"><div class="api-row"><code>setLabel(texto)</code><p>Cambia el texto del botón.</p></div><div class="api-row"><code>setColors(relleno, borde, texto)</code><p>Activa colores personalizados.</p></div><div class="api-row"><code>setPressedVisual(boolean)</code><p>Fuerza el estado visual presionado.</p></div><div class="api-row"><code>setImage(PImage)</code><p>Cambia la imagen de <code>UIImageButton</code>.</p></div><div class="api-row"><code>setImageSize(w, h)</code><p>Define el tamaño dibujado de la imagen.</p></div></div>
+        <p class="event-list"><span class="badge event">Evento</span> <code>clicked</code>, con <code>data == null</code>.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UIButton guardar = new UIButton("guardar", 30, 30, 160, 46, "Guardar", 18);
+SimpleUI.addUIElement(guardar);
+
+// En onUIEvent:
+if (element == guardar && action.equals("clicked")) {
+  println("Datos guardados");
+}</code></pre></div>
+      </section>
+
+      <section class="page" id="label" data-search="uilabel uiindicator etiqueta indicador color alignment text">
+        <div class="eyebrow">Controles</div><h1>UILabel y UIIndicator</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UILabel(id, x, y, w, h, texto, fontSize)
+UIIndicator(id, x, y, size)</code></pre></div>
+        <p><code>UILabel</code> muestra texto no interactivo; <code>UIIndicator</code> dibuja un testigo circular de estado.</p>
+        <div class="api"><div class="api-row"><code>label.setText(texto)</code><p>Actualiza el contenido.</p></div><div class="api-row"><code>label.setTextAlignment(horizontal, vertical)</code><p>Usa constantes Processing como <code>LEFT</code>, <code>CENTER</code>, <code>TOP</code>.</p></div><div class="api-row"><code>indicator.setIndicatorColor(color)</code><p>Cambia el color del testigo.</p></div><div class="api-row"><code>indicator.setBorderColor(color)</code><p>Personaliza el borde; <code>clearBorderColor()</code> recupera el tema.</p></div></div>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UILabel estado = new UILabel("estado", 60, 30, 260, 30, "Conectado", 18);
+UIIndicator led = new UIIndicator("led", 30, 33, 20);
+led.setIndicatorColor(color(30, 190, 100));
+SimpleUI.addUIElement(estado);
+SimpleUI.addUIElement(led);</code></pre></div>
+      </section>
+
+      <section class="page" id="checkbox" data-search="uicheckbox uiswitch interruptor casilla boolean checked changed">
+        <div class="eyebrow">Controles booleanos</div><h1>UICheckbox y UISwitch</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge advanced">UISwitch nuevo en 0.5.0</span></div>
+        <div class="code-wrap signature"><pre><code>UICheckbox(id, x, y, size, label, fontSize)
+UISwitch(id, x, y, w, h, label, initialValue, fontSize)</code></pre></div>
+        <p>Ambos controles representan un valor booleano. <code>UICheckbox</code> usa una casilla tradicional; <code>UISwitch</code> ofrece un interruptor compacto con pista, cursor y etiqueta, integrado con escala, temas y eventos.</p>
+        <div class="api"><div class="api-row"><code>isChecked()</code><p>Consulta el estado actual.</p></div><div class="api-row"><code>setChecked(boolean)</code><p>Modifica el estado desde el programa sin emitir un evento.</p></div><div class="api-row"><code>setLabel(texto)</code><p>Cambia la etiqueta mostrada junto al interruptor.</p></div><div class="api-row"><code>toggle()</code><p>Invierte el estado y emite <code>changed</code>. No actúa si el control está deshabilitado.</p></div></div>
+        <p class="event-list"><span class="badge event">Evento</span> Los dos emiten <code>changed</code>; <code>data</code> contiene el nuevo <code>boolean</code>.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UICheckbox sonido = new UICheckbox("sonido", 30, 40, 24, "Activar sonido", 17);
+sonido.setChecked(true);
+SimpleUI.addUIElement(sonido);
+
+UISwitch ordenar = new UISwitch(
+  "ordenar", 30, 85, 250, 38,
+  "Ordenar por intensidad", false, 16
+);
+SimpleUI.addUIElement(ordenar);
+
+// En onUIEvent:
+if (element == sonido && action.equals("changed")) {
+  boolean activo = (Boolean)data;
+}
+if (element == ordenar && action.equals("changed")) {
+  println((Boolean)data ? "Orden RSSI" : "Orden topológico");
+}</code></pre></div>
+      </section>
+
+      <section class="page" id="slider" data-search="uislider uiprogressbar deslizador progreso range value changed">
+        <div class="eyebrow">Controles</div><h1>UISlider y UIProgressBar</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UISlider(id, x, y, w, h, min, max, initialValue, fontSize)
+
+UIProgressBar(id, x, y, w, h)</code></pre></div>
+        <div class="api"><div class="api-row"><code>slider.getValue() / setValue(v)</code><p>Consulta o cambia el valor, limitado al rango.</p></div><div class="api-row"><code>progress.setProgress(v)</code><p>Define progreso entre 0 y 1.</p></div><div class="api-row"><code>progress.getProgress()</code><p>Consulta el progreso.</p></div><div class="api-row"><code>progress.setColors(track, fill)</code><p>Personaliza pista y relleno.</p></div></div>
+        <p class="event-list"><span class="badge event">UISlider</span> emite <code>changed</code> con un <code>float</code> durante el movimiento y <code>released</code> al finalizar.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UISlider volumen = new UISlider("volumen", 30, 50, 280, 34, 0, 100, 50, 16);
+UIProgressBar nivel = new UIProgressBar("nivel", 30, 105, 280, 18);
+SimpleUI.addUIElement(volumen);
+SimpleUI.addUIElement(nivel);
+
+// En onUIEvent:
+if (element == volumen && action.equals("changed")) {
+  nivel.setProgress(((Float)data) / 100.0);
+}</code></pre></div>
+      </section>
+
+      <section class="page" id="dropdown" data-search="uidropdown uitabs opciones pestañas changed tabChanged selected index">
+        <div class="eyebrow">Controles</div><h1>UIDropdown y UITabs</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UIDropdown(id, x, y, w, h, String[] options, fontSize)
+UITabs(id, x, y, w, h, String[] tabs, fontSize)</code></pre></div>
+        <h2>UIDropdown</h2><div class="api"><div class="api-row"><code>getSelectedValue()</code><p>Devuelve la opción actual.</p></div><div class="api-row"><code>getSelectedIndex() / setSelectedIndex(i)</code><p>Consulta o selecciona por índice.</p></div><div class="api-row"><code>setOptions(String[])</code><p>Reemplaza todas las opciones.</p></div><div class="api-row"><code>isOpen() / setOpen(boolean)</code><p>Consulta o cambia la apertura.</p></div></div><p class="event-list"><span class="badge event">Evento</span> <code>changed</code> con el texto elegido.</p>
+        <h2>UITabs</h2><div class="api"><div class="api-row"><code>getSelectedIndex()</code><p>Índice de pestaña activa.</p></div><div class="api-row"><code>getSelectedLabel()</code><p>Etiqueta activa.</p></div><div class="api-row"><code>setSelectedIndex(i)</code><p>Selecciona una pestaña.</p></div></div><p class="event-list"><span class="badge event">Evento</span> <code>tabChanged</code> con la etiqueta elegida.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>String[] modos = { "Básico", "Avanzado", "Experto" };
+UIDropdown selector = new UIDropdown("modo", 30, 40, 220, 44, modos, 17);
+UITabs tabs = new UITabs("secciones", 30, 110, 360, 42,
+  new String[]{ "Inicio", "Datos", "Ajustes" }, 16);
+SimpleUI.addUIElement(selector);
+SimpleUI.addUIElement(tabs);</code></pre></div>
+      </section>
+
+      <section class="page" id="list" data-search="uilist uitable lista tabla rows items selected scroll headers columns">
+        <div class="eyebrow">Colecciones visuales</div><h1>UIList y UITable</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UIList(id, x, y, w, h, fontSize)
+UITable(id, x, y, w, h, String[] headers, float[] columnWidths, fontSize)</code></pre></div>
+        <h2>UIList</h2><div class="api"><div class="api-row"><code>addItem(texto)</code><p>Añade una entrada.</p></div><div class="api-row"><code>getItemCount()</code><p>Número de entradas.</p></div><div class="api-row"><code>getSelectedIndex()</code><p>Índice seleccionado; -1 si no hay selección.</p></div><div class="api-row"><code>clearItems() / scrollToBottom()</code><p>Limpia o desplaza al final.</p></div><div class="api-row"><code>setTitle(texto)</code><p>Muestra una cabecera.</p></div></div><p class="event-list"><span class="badge event">Evento</span> <code>itemSelected</code> con el texto.</p>
+        <h2>UITable</h2><div class="api"><div class="api-row"><code>addRow(String[])</code><p>Añade una fila; debe corresponder con las columnas.</p></div><div class="api-row"><code>clearRows() / getRowCount()</code><p>Limpia o cuenta las filas.</p></div><div class="api-row"><code>scrollToBottom()</code><p>Muestra las últimas filas.</p></div><div class="api-row"><code>hasScrollableOverflow()</code><p>Indica si existen más filas que espacio visible.</p></div><div class="api-row"><code>minimumScroll()</code><p>Devuelve el límite inferior del desplazamiento interno.</p></div></div><p class="event-list"><span class="badge event">Evento</span> <code>rowSelected</code> con la fila como <code>String[]</code>.</p>
+        <p>Cuando hay desbordamiento, la tabla muestra automáticamente un rail vertical y un cursor proporcional: cuanto mayor sea la parte visible del contenido, mayor será el cursor. Puede desplazarse con rueda, arrastre del contenido, arrastre del cursor o clic sobre el rail.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UITable alumnos = new UITable("alumnos", 30, 40, 520, 260,
+  new String[]{ "Nombre", "Curso", "Nota" },
+  new float[]{ .45, .30, .25 }, 16);
+alumnos.addRow(new String[]{ "Ada", "Processing", "9.5" });
+alumnos.addRow(new String[]{ "Alan", "Java", "8.7" });
+SimpleUI.addUIElement(alumnos);</code></pre></div>
+      </section>
+
+      <section class="page" id="text" data-search="uitextfield uitextarea input texto teclado native multiline submitted changed focus maxlen uppercase">
+        <div class="eyebrow">Entrada de datos</div><h1>UITextField y UITextArea</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge android">Teclado nativo Android</span></div>
+        <div class="code-wrap signature"><pre><code>UITextField(id, x, y, w, h, placeholder, fontSize)
+UITextArea(id, x, y, w, h, placeholder, fontSize)</code></pre></div>
+        <p><code>UITextField</code> introduce una sola línea. <code>UITextArea</code> admite varias líneas, ajuste de texto y desplazamiento interno.</p>
+        <div class="api"><div class="api-row"><code>getText() / setText(texto)</code><p>Lee o escribe el contenido.</p></div><div class="api-row"><code>setMaxLen(n)</code><p>Limita el número de caracteres.</p></div><div class="api-row"><code>setUppercase(boolean)</code><p>Convierte la entrada a mayúsculas.</p></div><div class="api-row"><code>setFocused(boolean) / isFocused()</code><p>Controla el foco.</p></div><div class="api-row"><code>submitAndCloseKeyboard()</code><p>Confirma y cierra el teclado.</p></div><div class="api-row"><code>setTextColor() / setBorderColor()</code><p>Personaliza los colores; los métodos <code>clear…()</code> recuperan el tema.</p></div><div class="api-row"><code>area.scrollToBottom()</code><p>Desplaza el área multilínea hasta el final.</p></div></div>
+        <p class="event-list"><span class="badge event">Eventos</span> <code>changed</code> durante la edición y <code>submitted</code> al confirmar; ambos entregan el texto.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UITextField nombre = new UITextField("nombre", 30, 40, 300, 44, "Tu nombre", 17);
+nombre.setMaxLen(40);
+UITextArea notas = new UITextArea("notas", 30, 105, 420, 150, "Observaciones", 16);
+SimpleUI.addUIElement(nombre);
+SimpleUI.addUIElement(notas);</code></pre></div>
+      </section>
+
+      <section class="page" id="number" data-search="uinumberfield numero decimal negative range float int valid submitted">
+        <div class="eyebrow">Entrada de datos</div><h1>UINumberField</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UINumberField(id, x, y, w, h, placeholder, fontSize)</code></pre></div>
+        <div class="api"><div class="api-row"><code>setAllowDecimal(boolean)</code><p>Permite o bloquea decimales.</p></div><div class="api-row"><code>setAllowNegative(boolean)</code><p>Permite o bloquea signo negativo.</p></div><div class="api-row"><code>setRange(min, max) / clearRange()</code><p>Define o elimina límites.</p></div><div class="api-row"><code>isValidNumber()</code><p>Comprueba que el texto es un número final válido.</p></div><div class="api-row"><code>getFloatValue() / getIntValue()</code><p>Devuelve el valor o <code>null</code> si no puede convertirse.</p></div><div class="api-row"><code>getText() / setText()</code><p>Accede a la representación textual.</p></div></div>
+        <p class="event-list"><span class="badge event">Eventos</span> <code>changed</code> entrega texto; <code>submitted</code> entrega <code>Float</code> o <code>null</code>.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UINumberField nota = new UINumberField("nota", 30, 40, 180, 44, "0 a 10", 17);
+nota.setAllowDecimal(true);
+nota.setAllowNegative(false);
+nota.setRange(0, 10);
+SimpleUI.addUIElement(nota);</code></pre></div>
+      </section>
+
+      <section class="page" id="panel" data-search="uipanel panel fondo borde titulo agrupacion layout">
+        <div class="eyebrow">Composición</div><h1>UIPanel</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UIPanel(id, x, y, w, h)</code></pre></div><p>Superficie visual para agrupar controles. No contiene automáticamente otros elementos: el programador coloca los controles sobre sus coordenadas y debe añadir primero el panel para que quede detrás.</p>
+        <div class="api"><div class="api-row"><code>setTitle(texto, fontSize)</code><p>Añade título.</p></div><div class="api-row"><code>clearTitle()</code><p>Oculta el título.</p></div><div class="api-row"><code>setColors(fill, border, title)</code><p>Define colores personalizados.</p></div><div class="api-row"><code>clearCustomColors()</code><p>Recupera los colores del tema.</p></div></div>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UIPanel panel = new UIPanel("datos", 20, 20, 420, 180);
+panel.setTitle("Datos del alumno", 18);
+SimpleUI.addUIElement(panel); // Primero: queda detrás
+SimpleUI.addUIElement(new UITextField("nombre", 40, 70, 300, 42, "Nombre", 16));</code></pre></div>
+      </section>
+
+      <section class="page" id="chat" data-search="chatarea chat mensajes burbuja left right footer receipt scroll">
+        <div class="eyebrow">Mensajería</div><h1>chatArea</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>chatArea(id, x, y, w, h)</code></pre></div><p>Área desplazable que presenta mensajes como burbujas a izquierda o derecha. El nombre público de la clase comienza en minúscula por compatibilidad con el código original.</p>
+        <div class="api"><div class="api-row"><code>addMessage(side, text)</code><p>Añade un mensaje. Usa lados coherentes en todo el proyecto, por ejemplo 0 izquierda y 1 derecha.</p></div><div class="api-row"><code>clearMessages()</code><p>Elimina el historial.</p></div><div class="api-row"><code>scrollToBottom()</code><p>Muestra el mensaje más reciente.</p></div><div class="api-row"><code>setPanelColor() / setLeftCardColor() / setRightCardColor()</code><p>Personaliza panel y burbujas.</p></div></div>
+        <div class="callout"><strong>Mensajes enriquecidos:</strong> en ambas plataformas existe <code>addMessage(side, text, footer, readReceipt)</code>. <code>ChatAreaMessage</code> almacena <code>side</code>, <code>text</code>, <code>footer</code> y <code>readReceipt</code>.</div>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>chatArea chat = new chatArea("chat", 20, 30, 440, 300);
+chat.addMessage(0, "¿Preparado para empezar?");
+chat.addMessage(1, "Sí, vamos allá.");
+chat.scrollToBottom();
+SimpleUI.addUIElement(chat);</code></pre></div>
+      </section>
+
+      <section class="page" id="signal" data-search="uisignalmeter rssi dbm signal radio smeter pending desktop">
+        <div class="eyebrow">Telemetría</div><h1>UISignalMeter</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UISignalMeter(id, x, y, w, h, label)</code></pre></div><p>Representa intensidad de señal a partir de RSSI en dBm y la traduce a segmentos y etiqueta de S-meter.</p>
+        <div class="api"><div class="api-row"><code>setLabel(texto)</code><p>Cambia la etiqueta.</p></div><div class="api-row"><code>setRssi(dbm)</code><p>Actualiza la medida.</p></div><div class="api-row"><code>setPending(boolean)</code><p>Muestra estado pendiente.</p></div><div class="api-row"><code>smeterLabelFromRssi()</code><p>Obtiene la etiqueta S correspondiente.</p></div><div class="api-row"><code>smeterSegmentsFromRssi()</code><p>Obtiene el número de segmentos.</p></div></div>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UISignalMeter señal = new UISignalMeter("rssi", 30, 30, 300, 70, "LoRa");
+señal.setRssi(-92);
+SimpleUI.addUIElement(señal);</code></pre></div>
+      </section>
+
+      <section class="page" id="views" data-search="uiview uiviewmanager pantallas vistas navigation show hide destroy lifecycle controls">
+        <div class="eyebrow">Interfaz avanzada</div><h1>UIView y UIViewManager</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge advanced">Avanzado</span></div>
+        <p>Una <code>UIView</code> agrupa controles que deben aparecer y desaparecer juntos. <code>UIViewManager</code> prepara vistas, cambia la vista activa y enruta sus eventos.</p>
+        <h2>Ciclo de vida de una vista</h2><div class="api"><div class="api-row"><code>initialize()</code><p>Obligatorio. Crea y registra controles una sola vez.</p></div><div class="api-row"><code>onShow()</code><p>Se ejecuta al mostrarse.</p></div><div class="api-row"><code>onHide()</code><p>Se ejecuta al ocultarse.</p></div><div class="api-row"><code>onDestroy()</code><p>Libera recursos propios.</p></div><div class="api-row"><code>addControl(elemento)</code><p>Asocia un control a la vista.</p></div></div>
+        <h2>UIViewManager</h2><div class="api"><div class="api-row"><code>prepare(view)</code><p>Inicializa sin mostrar.</p></div><div class="api-row"><code>show(view)</code><p>Oculta la actual y muestra la nueva.</p></div><div class="api-row"><code>hide(view) / destroy(view)</code><p>Oculta o destruye.</p></div><div class="api-row"><code>getActiveView()</code><p>Devuelve la vista activa.</p></div><div class="api-row"><code>routeEvent(element, action, data)</code><p>Entrega un evento a la vista propietaria.</p></div></div>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UIViewManager paginas = new UIViewManager("principal");
+
+class InicioView extends UIView {
+  InicioView() { super("inicio", paginas); }
+
+  public void initialize() {
+    addControl(new UIButton("continuar", 30, 40, 180, 44, "Continuar", 17));
+  }
+}
+
+InicioView inicio = new InicioView();
+paginas.show(inicio);</code></pre></div>
+      </section>
+
+      <section class="page" id="modal" data-search="modal uimodal alert confirm dialog show hide result runnable">
+        <div class="eyebrow">Interfaz avanzada</div><h1>Modales</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <h2>Alertas rápidas</h2><div class="api"><div class="api-row"><code>showAlertModal(título, mensaje, botón)</code><p>Muestra un aviso con una acción de cierre.</p></div><div class="api-row"><code>hideAlertModal()</code><p>Cierra el aviso.</p></div><div class="api-row"><code>isAlertModalVisible() / isAnyModalVisible()</code><p>Consulta el estado modal.</p></div></div>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>SimpleUI.showAlertModal("Información", "Los cambios se han guardado.", "Aceptar");</code></pre></div>
+        <h2>Confirmación</h2><p>Ambas plataformas permiten usar <code>showConfirmModal(título, mensaje, aceptar, cancelar, actionId)</code> con <code>setModalResultHandler()</code>, o la variante con dos callbacks <code>Runnable</code>.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>SimpleUI.showConfirmModal("Borrar", "¿Eliminar el registro?", "Sí", "No",
+  new Runnable() { public void run() { borrar(); } },
+  new Runnable() { public void run() { println("Cancelado"); } }
+);</code></pre></div>
+        <h2>UIModal personalizado</h2><p>Subclasifica <code>UIModal</code>, implementa <code>initialize()</code>, añade controles con <code>addControl()</code> y usa <code>show()</code>/<code>hide()</code>. Los hooks <code>onShow()</code> y <code>onHide()</code> permiten reaccionar al ciclo de vida.</p>
+      </section>
+
+      <section class="page" id="calendar" data-search="uicalendar calendario event selection date month year today agenda">
+        <div class="eyebrow">Calendario</div><h1>UICalendar</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <div class="code-wrap signature"><pre><code>UICalendar(id, x, y, w, h)
+UICalendar(id, x, y, w, h, UIDate initialDate)</code></pre></div>
+        <h2>Navegación y selección</h2><div class="api"><div class="api-row"><code>showPreviousMonth() / showNextMonth()</code><p>Navega un mes.</p></div><div class="api-row"><code>showPreviousYear() / showNextYear()</code><p>Navega un año.</p></div><div class="api-row"><code>showToday()</code><p>Vuelve al mes actual.</p></div><div class="api-row"><code>setDisplayedMonth(year, month)</code><p>Muestra un mes concreto.</p></div><div class="api-row"><code>selectDate() / setSelectedDate()</code><p>Selecciona fecha y emite evento / fija la selección.</p></div><div class="api-row"><code>getSelectedDate() / clearSelection()</code><p>Consulta o limpia la selección.</p></div></div>
+        <h2>Eventos de agenda</h2><div class="api"><div class="api-row"><code>addEvent(id, fecha, título)</code><p>Añade un evento de un día.</p></div><div class="api-row"><code>addEvent(id, inicio, fin, título)</code><p>Añade un intervalo con <code>UIDate</code> o <code>UIDateTime</code>.</p></div><div class="api-row"><code>getEvent(id) / hasEvent(id) / removeEvent(id)</code><p>Gestiona por identificador.</p></div><div class="api-row"><code>getEventsForDate(fecha)</code><p>Obtiene una lista segura para esa fecha.</p></div><div class="api-row"><code>getEventsForDisplayedMonth()</code><p>Obtiene los eventos visibles.</p></div><div class="api-row"><code>clearEvents()</code><p>Vacía la agenda.</p></div></div>
+        <p class="event-list"><span class="badge event">Eventos</span> <code>dateSelected</code> → <code>UICalendarSelection</code>; <code>selectionCleared</code>; <code>monthChanged</code>, <code>yearChanged</code> y <code>viewChanged</code> → <code>UIDate</code>.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UICalendar calendario = new UICalendar("agenda", 30, 30, 430, 350);
+UIDate hoy = SimpleUI.getUIToday();
+calendario.addEvent("clase", hoy, "Clase de Processing")
+          .setColor(color(37, 99, 235))
+          .setData("Aula 2");
+SimpleUI.addUIElement(calendario);
+
+// En onUIEvent:
+if (element == calendario && action.equals("dateSelected")) {
+  UICalendarSelection seleccion = (UICalendarSelection)data;
+  println(seleccion.date + " · " + seleccion.events.size() + " eventos");
+}</code></pre></div>
+        <h2>UICalendarEvent</h2><p>Expone <code>getId()</code>, <code>getTitle()</code>, <code>getStart()</code>, <code>getEnd()</code>, <code>getColor()</code>, <code>getData()</code> e <code>isVisible()</code>. Sus setters encadenables son <code>setTitle()</code>, <code>setColor()</code>, <code>setData()</code>, <code>setVisible()</code> y <code>setInterval()</code>. También ofrece <code>occursOn()</code>, <code>hasStarted()</code>, <code>hasFinished()</code>, <code>isActiveAt()</code> y <code>getDuration()</code>.</p>
+      </section>
+
+      <section class="page" id="datetime" data-search="uidate uidatetime uitimespan fecha tiempo compare plus days epoch timezone duration comparator">
+        <div class="eyebrow">Modelo temporal</div><h1>Fechas y tiempo</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <h2>UIDate</h2><div class="code-wrap signature"><pre><code>UIDate(year, month, day)
+UIDate(otraFecha)</code></pre></div><p>Fecha inmutable con campos <code>year</code>, <code>month</code> y <code>day</code>. Valida la fecha al construirla.</p><div class="api"><div class="api-row"><code>isBefore / isAfter / isEqual</code><p>Comparaciones legibles; existen variantes <code>…OrEqual</code>.</p></div><div class="api-row"><code>differenceInDays(otra)</code><p>Diferencia con signo; <code>absoluteDifferenceInDays()</code> devuelve valor absoluto.</p></div><div class="api-row"><code>plusDays(n)</code><p>Crea una nueva fecha desplazada.</p></div><div class="api-row"><code>toUtcMillis()</code><p>Convierte la medianoche UTC a milisegundos.</p></div></div>
+        <h2>UIDateTime</h2><div class="code-wrap signature"><pre><code>UIDateTime(y, m, d, hour, minute, second)
+UIDateTime(y, m, d, hour, minute, second, millisecond, timeZoneId)</code></pre></div><p>Fecha y hora inmutable. Ofrece <code>getDate()</code>, comparaciones, <code>toEpochMilliseconds()</code>, <code>difference()</code> y <code>differenceInMilliseconds()</code>.</p>
+        <h2>UITimeSpan</h2><div class="code-wrap signature"><pre><code>UITimeSpan(totalMilliseconds)</code></pre></div><p>Duración con totales en milisegundos, segundos, minutos, horas o días; partes de días/horas/minutos/segundos; <code>isNegative()</code> y <code>absolute()</code>.</p>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UIDate inicio = new UIDate(2026, 9, 15);
+UIDate examen = inicio.plusDays(30);
+println(inicio.differenceInDays(examen));
+
+UIDateTime entrada = new UIDateTime(2026, 9, 15, 9, 0, 0);
+UIDateTime salida  = new UIDateTime(2026, 9, 15, 11, 30, 0);
+UITimeSpan duracion = salida.difference(entrada);
+println(duracion.getTotalMinutes()); // 150</code></pre></div>
+        <p><code>UIDateComparator</code>, <code>UIDateTimeComparator</code> y <code>UICalendarEventDateComparator</code> son comparadores auxiliares usados para ordenar colecciones.</p>
+      </section>
+
+      <section class="page" id="core" data-search="simplecore core singleton start shutdown tasks signal priority rendering lifecycle">
+        <div class="eyebrow">Motor de tareas</div><h1>Core</h1><div class="badges"><span class="badge core">Desktop y Android · paquete simplecore</span><span class="badge advanced">Singleton estricto</span></div>
+        <p class="lead"><code>Core</code> coordina tareas en cada fotograma. Solo puede existir una instancia ligada a un único <code>PApplet</code>.</p>
+        <div class="api"><div class="api-row"><code>Core.start(this)</code><p>Crea la instancia o devuelve la existente si pertenece al mismo sketch.</p></div><div class="api-row"><code>Core.getInstance()</code><p>Obtiene la instancia; lanza excepción si no se inició.</p></div><div class="api-row"><code>Core.isRunning()</code><p>Indica si hay instancia activa.</p></div><div class="api-row"><code>Core.shutdown()</code><p>Desregistra callbacks, destruye tareas y permite un reinicio limpio.</p></div><div class="api-row"><code>getTaskById(id)</code><p>Busca una tarea por su entero positivo.</p></div><div class="api-row"><code>getTaskCount() / getTasksSnapshot()</code><p>Consulta el estado sin exponer la colección interna.</p></div><div class="api-row"><code>signal(task, señal)</code><p>Envía una señal a una tarea.</p></div><div class="api-row"><code>signal(type, señal)</code><p>Envía a todas las tareas de un tipo.</p></div><div class="api-row"><code>signal(className, señal)</code><p>Envía por nombre de clase.</p></div><div class="api-row"><code>letMeAlone()</code><p>Desde una tarea, elimina las demás que no estén protegidas.</p></div></div>
+        <h2>Señales</h2><table><thead><tr><th>Constante</th><th>Resultado</th></tr></thead><tbody><tr><td><code>SIGNAL_KILL</code></td><td>Marca para destruir, salvo protección.</td></tr><tr><td><code>SIGNAL_PROTECT</code></td><td>Activa protección contra kill.</td></tr><tr><td><code>SIGNAL_UNPROTECT</code></td><td>Retira la protección.</td></tr></tbody></table>
+        <h2>Representación</h2><p>El renderizado automático está activo. Usa <code>setAutomaticRendering(false)</code> y llama <code>renderTasks()</code> cuando necesites controlar las capas. <code>setTaskCanvasScale()</code> aplica una escala común a todas las tareas gráficas.</p>
+        <div class="callout warning"><strong>Importante:</strong> crear una <code>Task</code> antes de <code>Core.start(this)</code> produce una excepción. Intentar iniciar el singleton con otro sketch también produce una excepción.</div>
+      </section>
+
+      <section class="page" id="task" data-search="task simplecore initialize frame ondestroy graph sprite position angle alpha tint advance distance father properties">
+        <div class="eyebrow">Motor de tareas</div><h1>Task</h1><div class="badges"><span class="badge core">Desktop y Android</span></div>
+        <p>Una tarea encapsula estado y comportamiento actualizado por fotogramas. Se registra automáticamente al ejecutar su constructor.</p>
+        <h2>Ciclo de vida que se sobrescribe</h2><div class="api"><div class="api-row"><code>protected void initialize()</code><p>Una vez, justo antes del primer <code>frame()</code>.</p></div><div class="api-row"><code>protected void frame()</code><p>Una vez por fotograma mientras la tarea esté viva.</p></div><div class="api-row"><code>protected void onDestroy()</code><p>Una sola vez al destruirse.</p></div><div class="api-row"><code>protected void render()</code><p>Dibujo; la implementación base representa <code>graph</code> con transformaciones.</p></div></div>
+        <div class="code-wrap"><button class="copy">Copiar</button><pre><code>import simplecore.*;
+
+class Pelota extends Task {
+  Pelota(PImage imagen) {
+    setGraph(imagen).setPosition(80, 120).setZ(10);
+  }
+
+  protected void initialize() {
+    priority = 5;
+  }
+
+  protected void frame() {
+    advance(0, 2);        // 0° = derecha
+    setAngle(angle + 1);
+    if (x > width + 50) kill();
+  }
+
+  protected void onDestroy() {
+    println("Pelota destruida: " + id);
+  }
+}
+
+void setup() {
+  size(640, 360);
+  Core.start(this);
+  new Pelota(loadImage("pelota.png"));
+}</code></pre></div>
+        <h2>Estado y API</h2><div class="api"><div class="api-row"><code>id, type, className, father, liveFrames</code><p>Identidad, clasificación, relación y edad.</p></div><div class="api-row"><code>priority</code><p>Las prioridades mayores actualizan primero.</p></div><div class="api-row"><code>properties</code><p><code>StringDict</code> para datos adicionales.</p></div><div class="api-row"><code>kill() / setKillProtection()</code><p>Controlan la vida y protección.</p></div><div class="api-row"><code>setGraph() / clearGraph()</code><p>Asigna imagen de representación.</p></div><div class="api-row"><code>setPosition(), setZ(), setScale(), setAxisScale()</code><p>Transformaciones encadenables.</p></div><div class="api-row"><code>setAngle(), setAlpha(), setTint(), setVisible()</code><p>Apariencia encadenable.</p></div><div class="api-row"><code>getDist(task) / getAngle(task)</code><p>Relación espacial con otra tarea.</p></div><div class="api-row"><code>advance(ángulo, distancia)</code><p>Desplaza usando grados.</p></div><div class="api-row"><code>exists() / isDrawable()</code><p>Consulta estado.</p></div></div>
+        <div class="callout"><strong>Sin red.</strong> SimpleCore no contiene <code>NetMessage</code>, <code>onNetMessage()</code> ni conversiones de rutas. La comunicación de red puede añadirse después mediante una interfaz del proyecto.</div>
+      </section>
+
+      <section class="page" id="ejemplos" data-search="ejemplos curso alumnos desktop android controles login calendario simplecore videojuego animacion particulas hover touch">
+        <div class="eyebrow">Itinerario para el aula</div><h1>52 sketches: 26 parejas Desktop y Android</h1>
+        <p class="lead">Cada ejercicio Desktop tiene una versión Android equivalente. Los nombres y la estructura se mantienen para que el alumno pueda comparar ambas plataformas línea por línea.</p>
+        <div class="cards">
+          <div class="card"><h3>01 a 09</h3><p>Botones, imagen, etiqueta, indicador, checkbox, slider, progreso, desplegable y pestañas.</p></div>
+          <div class="card"><h3>10 a 18</h3><p>Lista, tabla, entradas de texto y número, panel, chat, medidor RSSI y calendario.</p></div>
+          <div class="card"><h3>19 a 21</h3><p>Miniaplicaciones de login, confirmación modal y navegación mediante vistas.</p></div>
+          <div class="card"><h3>22 a 25</h3><p>SimpleCore: ciclo de vida, minijuego, partículas y reacción al ratón o al dedo.</p></div>
+          <div class="card"><h3>26</h3><p><code>UISwitch</code>: valor booleano compacto, estado inicial y evento <code>changed</code>.</p></div>
+        </div>
+        <h2>Convención de nombres</h2>
+        <p>Por ejemplo, <code>Desktop06Slider</code> y <code>Android06Slider</code> forman una pareja. Cada carpeta contiene un sketch independiente cuyo archivo principal tiene el mismo nombre que la carpeta.</p>
+        <h2>Principios didácticos</h2>
+        <ul><li>Variables con nombres que explican su función.</li><li>Un único concepto nuevo por ejemplo de control.</li><li>Sin recursos externos: iconos y sprites se generan por código.</li><li>Sin callbacks manuales de ratón o teclado; se utiliza el puente automático de SimpleUI.</li></ul>
+        <div class="callout good"><strong>Orden sugerido:</strong> 01, 05, 06 y 26 para introducir eventos y estados; 10, 12 y 18 para trabajar datos; 19 a 21 para construir aplicaciones; 22 a 25 para introducir tareas y animación.</div>
+        <div class="callout warning"><strong>Login didáctico:</strong> el campo de clave no está enmascarado. El ejemplo enseña composición y validación, no autenticación segura.</div>
+      </section>
+
+      <section class="page" id="catalogo" data-search="catalogo clases api completa auxiliares gesture scroll config comparator input rect">
+        <div class="eyebrow">Referencia rápida</div><h1>Catálogo completo de clases</h1>
+        <p>La tabla distingue las clases pensadas para sketches de las clases de soporte que normalmente usa la propia biblioteca.</p>
+        <div class="table-scroll"><table class="platform-table"><thead><tr><th>Clase</th><th>Desktop</th><th>Android</th><th>Función</th></tr></thead><tbody>
+          <tr><td><code>SimpleUI</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Coordinador estático.</td></tr><tr><td><code>UIElement</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Base de controles.</td></tr>
+          <tr><td><code>UIButton</code>, <code>UIImageButton</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Botones.</td></tr><tr><td><code>UILabel</code>, <code>UIIndicator</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Información no interactiva.</td></tr>
+          <tr><td><code>UICheckbox</code>, <code>UISwitch</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Valores booleanos.</td></tr><tr><td><code>UISlider</code>, <code>UIProgressBar</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Valor y progreso.</td></tr>
+          <tr><td><code>UIDropdown</code>, <code>UITabs</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Selección entre opciones.</td></tr><tr><td><code>UIList</code>, <code>UITable</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Colecciones desplazables.</td></tr>
+          <tr><td><code>UITextField</code>, <code>UITextArea</code>, <code>UINumberField</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Entrada de datos.</td></tr><tr><td><code>UIPanel</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Agrupación visual.</td></tr>
+          <tr><td><code>chatArea</code>, <code>ChatAreaMessage</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Mensajería.</td></tr><tr><td><code>UISignalMeter</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Medidor RSSI.</td></tr>
+          <tr><td><code>UICalendar</code>, <code>UICalendarEvent</code>, <code>UICalendarSelection</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Calendario y agenda.</td></tr>
+          <tr><td><code>UIDate</code>, <code>UIDateTime</code>, <code>UITimeSpan</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Modelo temporal.</td></tr>
+          <tr><td><code>UIView</code>, <code>UIViewManager</code>, <code>UIModal</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Pantallas y diálogos.</td></tr>
+          <tr><td><code>UIColorTheme</code>, <code>UIConfig</code>, <code>UIEventHandler</code>, <code>UIScaleMode</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Configuración pública.</td></tr>
+          <tr><td><code>UITextInputBase</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Base abstracta de inputs.</td></tr>
+          <tr><td><code>UIScrollState</code>, <code>UIGestureState</code>, <code>UIGestureAxis</code>, <code>UIGestureTarget</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Soporte interno de interacción.</td></tr>
+          <tr><td><code>UIDateComparator</code>, <code>UIDateTimeComparator</code>, <code>UICalendarEventDateComparator</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Ordenación temporal.</td></tr>
+          <tr><td><code>UIRect</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Rectángulo auxiliar común.</td></tr>
+          <tr><td><code>Core</code>, <code>Task</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Motor común <code>simplecore</code>.</td></tr>
+        </tbody></table></div>
+        <h2>Tipos de soporte</h2><p><code>UIScrollState</code> mantiene desplazamiento y objetivo; <code>UIGestureState</code> registra el gesto capturado; <code>UIGestureAxis</code> clasifica su eje; <code>UIGestureTarget</code> representa el destino; <code>UITextInputBase</code> normaliza la interfaz de inputs. Son públicos por compatibilidad, pero no es necesario instanciarlos para el uso normal.</p>
+      </section>
+
+      <section class="page" id="recetas" data-search="recetas buenas practicas errores ids order layers event data responsive testing dispose">
+        <div class="eyebrow">Guía docente</div><h1>Recetas y buenas prácticas</h1>
+        <h2>Un identificador único por control</h2><p>El campo <code>id</code> permite localizar controles y depurar eventos. Usa nombres semánticos como <code>"guardarAlumno"</code> y evita reutilizarlos.</p>
+        <h2>Orden de capas</h2><p>Los controles se dibujan en el orden en que se añaden. Añade primero paneles y fondos; después campos y botones. Dropdowns y modales reciben tratamiento especial para quedar accesibles.</p>
+        <h2>Comprueba acción y elemento</h2><div class="code-wrap"><button class="copy">Copiar</button><pre><code>public void onUIEvent(UIElement element, String action, Object data) {
+  if (element.id.equals("edad") && action.equals("submitted")) {
+    Float edad = (Float)data;
+    if (edad != null) println("Edad: " + edad);
+  }
+}</code></pre></div>
+        <h2>Actualiza, no recrees</h2><p>Crea los controles en <code>setup()</code> o en <code>UIView.initialize()</code>. Durante <code>draw()</code>, modifica su contenido con setters. No construyas y registres controles en cada fotograma.</p>
+        <h2>Define una resolución de diseño</h2><p>Escoge un ancho y un alto lógicos —por ejemplo 1280 × 720— y llama a <code>setMode(1280, 720)</code>. Usa <code>UIScaleMode.RESPONSIVE</code> si el layout debe aprovechar el espacio adicional de ventanas redimensionables o pantallas con otra proporción.</p>
+        <h2>Reorganiza solo cuando cambie el viewport</h2><p>En un layout responsive, guarda el último valor de <code>getLogicalWidth()</code> y <code>getLogicalHeight()</code>. Recalcula posiciones y tamaños únicamente cuando cambien; evita hacerlo innecesariamente cada fotograma.</p>
+        <h2>Limpieza</h2><p><code>SimpleUI.detach()</code> y <code>Core.shutdown()</code> existen para reinicios controlados y tests. En el cierre normal, ambas partes usan callbacks <code>dispose</code>.</p>
+        <div class="callout good"><strong>Secuencia recomendada para clase:</strong> botón → eventos → inputs → listas → vistas → calendario → tareas. Cada etapa reutiliza los conceptos de la anterior.</div>
+      </section>
+
+      <section class="page" id="licencia" data-search="licencia mit copyright uso copia modificacion distribucion">
+        <div class="eyebrow">Distribución</div><h1>Licencia MIT</h1><div class="badges"><span class="badge advanced">Software libre permisivo</span></div>
+        <p><strong>SimpleUI y SimpleCore han sido diseñadas y desarrolladas por Luis López Martínez.</strong> Copyright © 2026 Luis López Martínez.</p>
+        <p>La biblioteca se distribuye bajo licencia MIT. Permite usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y vender copias, conservando el aviso de copyright y la licencia.</p>
+        <div class="callout warning">El software se proporciona «tal cual», sin garantías. Consulta el archivo <code>LICENSE</code> incluido en la raíz de la biblioteca para leer el texto legal completo.</div>
+        <h2>Datos de esta versión</h2><table><tbody><tr><th>Nombre</th><td>SimpleUI</td></tr><tr><th>Versión</th><td>0.5.1</td></tr><tr><th>Diseño y desarrollo</th><td><a href="https://github.com/LuislopezMartinez">Luis López Martínez</a></td></tr><tr><th>Copyright</th><td>© 2026 Luis López Martínez</td></tr><tr><th>Licencia</th><td>MIT</td></tr><tr><th>Paquetes</th><td><code>simpleui.desktop</code>, <code>simpleui.android</code>, <code>simplecore</code></td></tr><tr><th>Artefacto</th><td><code>library/SimpleUI.jar</code></td></tr><tr><th>Última actualización</th><td>24 de julio de 2026</td></tr><tr><th>Palabras clave</th><td>GUI, widgets, controles, interfaces, Desktop, Android, Processing</td></tr></tbody></table>
+        <h2>Compatibilidad comprobada</h2>
+        <ul>
+          <li><strong>Windows:</strong> compilación y pruebas completas con Processing 4.5.2.</li>
+          <li><strong>Android:</strong> compilación con Android Mode 4.6.1, Android API 33 y conversión D8.</li>
+          <li><strong>macOS y Linux:</strong> pendientes de verificación por la comunidad.</li>
+        </ul>
+        <p>No incluye dependencias de ejecución de terceros. Processing 4 es necesario y los sketches Android requieren instalar Android Mode.</p>
+        <p><a href="https://github.com/LuislopezMartinez/SimpleUI">Código fuente y seguimiento del proyecto</a> · <a href="https://github.com/LuislopezMartinez/SimpleUI/releases/latest/download/SimpleUI.zip">Descargar la última versión</a></p>
+      </section>
+
+      <footer>SimpleUI 0.5.1 · Diseñada y desarrollada por Luis López Martínez · Licencia MIT</footer>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const pages = [...document.querySelectorAll('.page')];
+      const buttons = [...document.querySelectorAll('.nav-item')];
+      const search = document.getElementById('search');
+      const menuButton = document.querySelector('.menu-toggle');
+      const normalize = value => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+      function showPage(id, updateHash = true) {
+        const target = document.getElementById(id) || pages[0];
+        pages.forEach(page => page.classList.toggle('active', page === target));
+        buttons.forEach(button => button.classList.toggle('active', button.dataset.page === target.id));
+        document.title = `${target.querySelector('h1').textContent} · SimpleUI`;
+        if (updateHash) history.replaceState(null, '', `#${target.id}`);
+        document.body.classList.remove('menu-open');
+        menuButton.setAttribute('aria-expanded', 'false');
+        window.scrollTo(0, 0);
+      }
+
+      buttons.forEach(button => button.addEventListener('click', () => showPage(button.dataset.page)));
+      search.addEventListener('input', () => {
+        const query = normalize(search.value.trim());
+        let visible = 0;
+        buttons.forEach(button => {
+          const page = document.getElementById(button.dataset.page);
+          const haystack = normalize(`${button.textContent} ${page.dataset.search || ''} ${page.textContent}`);
+          const match = !query || haystack.includes(query);
+          button.hidden = !match;
+          if (match) visible++;
+        });
+        document.querySelectorAll('.nav-group').forEach(group => {
+          group.hidden = ![...group.querySelectorAll('.nav-item')].some(button => !button.hidden);
+        });
+        document.getElementById('noResults').style.display = visible ? 'none' : 'block';
+      });
+      search.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          const query = normalize(search.value.trim());
+          const first = buttons.find(button => !button.hidden && normalize(button.textContent).includes(query))
+            || buttons.find(button => !button.hidden);
+          if (first) first.click();
+        }
+      });
+      menuButton.addEventListener('click', () => {
+        const open = document.body.classList.toggle('menu-open');
+        menuButton.setAttribute('aria-expanded', String(open));
+      });
+      document.querySelectorAll('.copy').forEach(button => button.addEventListener('click', async () => {
+        const text = button.nextElementSibling.innerText;
+        try { await navigator.clipboard.writeText(text); button.textContent = 'Copiado'; }
+        catch { button.textContent = 'Selecciona y copia'; }
+        setTimeout(() => button.textContent = 'Copiar', 1400);
+      }));
+      showPage(location.hash.slice(1) || 'inicio', false);
+      window.addEventListener('hashchange', () => showPage(location.hash.slice(1), false));
+    })();
+  </script>
+</body>
+</html>
