@@ -65,5 +65,17 @@ no debe usarse como sistema de autenticacion real.
 4. Introducir SimpleCore con 22 y convertir el concepto en movimiento con 23.
 5. Terminar combinando las dos partes de la libreria en 24 y 25.
 
+## Demostraciones adicionales
+
+Ademas de los 52 sketches numerados, la distribucion contiene ocho
+demostraciones generales:
+
+| Desktop | Android | Contenido |
+|---|---|---|
+| `DesktopBasic` | `AndroidBasic` | Inicio rapido con controles basicos |
+| `DesktopCalendar` | `AndroidCalendar` | Uso general del calendario |
+| `DesktopSimpleCore` | `AndroidSimpleCore` | Integracion basica de SimpleCore |
+| `DesktopUnifiedFeatures` | `AndroidUnifiedFeatures` | Resumen de funciones compartidas |
+
 Cada carpeta es un sketch independiente y puede abrirse directamente desde
 Processing una vez instalada la libreria SimpleUI.

@@ -6,6 +6,17 @@
 package simpleui.desktop;
 
 import java.util.*;
+import java.awt.Frame;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
+import processing.awt.PSurfaceAWT;
 import processing.core.*;
 import processing.event.*;
 import static processing.core.PApplet.*;
@@ -19,6 +30,7 @@ public static final String LIBRARY_LICENSE = "MIT";
     private static EventBridge eventBridge;
     private static boolean automaticEventHandling = true;
     private static KeyEventInterceptor keyEventInterceptor;
+    private static WindowsResizeGuard windowsResizeGuard;
 
     private SimpleUI() {}
 
@@ -28,11 +40,38 @@ public static final String LIBRARY_LICENSE = "MIT";
         app = host;
         syncHostState();
         installEventBridge();
+        installWindowsResizeGuard();
     }
 
     public static void detach() {
+        uninstallWindowsResizeGuard();
         uninstallEventBridge();
         app = null;
+    }
+
+    /**
+     * Reports whether the automatic Windows/Java2D resize guard is active.
+     * The guard installs itself from {@link #attach(PApplet)} and
+     * {@link #initUI(PApplet, String, int)} when the host uses PSurfaceAWT.
+     */
+    public static boolean isWindowsResizeGuardActive() {
+        return windowsResizeGuard != null;
+    }
+
+    private static void installWindowsResizeGuard() {
+        if (app == null || windowsResizeGuard != null) return;
+        WindowsResizeGuard candidate = WindowsResizeGuard.create(app);
+        if (candidate != null) {
+            windowsResizeGuard = candidate;
+            candidate.install();
+        }
+    }
+
+    private static void uninstallWindowsResizeGuard() {
+        if (windowsResizeGuard == null) return;
+        WindowsResizeGuard guard = windowsResizeGuard;
+        windowsResizeGuard = null;
+        guard.uninstall();
     }
 
     public static void setAutomaticEventHandling(boolean enabled) {
@@ -66,6 +105,225 @@ public static final String LIBRARY_LICENSE = "MIT";
         app.unregisterMethod("keyEvent", eventBridge);
         app.unregisterMethod("dispose", eventBridge);
         eventBridge = null;
+    }
+
+    private static final class WindowsResizeGuard {
+        private static final int SETTLE_DELAY_MS = 180;
+        private static final String BUFFER_ERROR =
+            "Buffers have not been created";
+
+        private final PSurface surface;
+        private final PSurfaceAWT.SmoothCanvas canvas;
+        private final JFrame window;
+        private final Timer settleTimer;
+        private final Thread.UncaughtExceptionHandler previousExceptionHandler;
+        private final Thread.UncaughtExceptionHandler exceptionHandler;
+        private final ComponentAdapter componentListener;
+        private final WindowAdapter windowListener;
+
+        private volatile boolean recoveryDispatchPending;
+        private boolean recoveryPending;
+        private boolean closing;
+
+        private WindowsResizeGuard(
+            PSurface surface,
+            PSurfaceAWT.SmoothCanvas canvas,
+            JFrame window
+        ) {
+            this.surface = surface;
+            this.canvas = canvas;
+            this.window = window;
+            previousExceptionHandler =
+                Thread.getDefaultUncaughtExceptionHandler();
+
+            settleTimer = new Timer(
+                SETTLE_DELAY_MS,
+                new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent event) {
+                        finishWindowTransition();
+                    }
+                }
+            );
+            settleTimer.setRepeats(false);
+
+            componentListener = new ComponentAdapter() {
+                @Override
+                public void componentResized(ComponentEvent event) {
+                    beginWindowTransition();
+                }
+
+                @Override
+                public void componentHidden(ComponentEvent event) {
+                    pauseRendering();
+                }
+
+                @Override
+                public void componentShown(ComponentEvent event) {
+                    scheduleTransitionFinish();
+                }
+            };
+
+            windowListener = new WindowAdapter() {
+                @Override
+                public void windowStateChanged(WindowEvent event) {
+                    if ((event.getNewState() & Frame.ICONIFIED) != 0) {
+                        pauseRendering();
+                    } else {
+                        beginWindowTransition();
+                    }
+                }
+
+                @Override
+                public void windowClosing(WindowEvent event) {
+                    closing = true;
+                    settleTimer.stop();
+                }
+            };
+
+            exceptionHandler = new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(
+                    Thread thread,
+                    Throwable error
+                ) {
+                    if (
+                        isRecoverableBufferError(thread, error) &&
+                        SimpleUI.windowsResizeGuard ==
+                            WindowsResizeGuard.this
+                    ) {
+                        scheduleRenderRecovery();
+                        return;
+                    }
+                    forwardException(thread, error);
+                }
+            };
+        }
+
+        static WindowsResizeGuard create(PApplet host) {
+            String osName = System.getProperty("os.name", "");
+            if (!osName.toLowerCase(Locale.ROOT).contains("windows")) {
+                return null;
+            }
+
+            PSurface surface = host.getSurface();
+            if (!(surface instanceof PSurfaceAWT)) return null;
+            Object nativeSurface = surface.getNative();
+            if (!(nativeSurface instanceof PSurfaceAWT.SmoothCanvas)) {
+                return null;
+            }
+
+            PSurfaceAWT.SmoothCanvas canvas =
+                (PSurfaceAWT.SmoothCanvas)nativeSurface;
+            if (!(canvas.getFrame() instanceof JFrame)) return null;
+            return new WindowsResizeGuard(
+                surface,
+                canvas,
+                (JFrame)canvas.getFrame()
+            );
+        }
+
+        void install() {
+            canvas.addComponentListener(componentListener);
+            window.addWindowStateListener(windowListener);
+            window.addWindowListener(windowListener);
+            Thread.setDefaultUncaughtExceptionHandler(exceptionHandler);
+        }
+
+        void uninstall() {
+            closing = true;
+            settleTimer.stop();
+            canvas.removeComponentListener(componentListener);
+            window.removeWindowStateListener(windowListener);
+            window.removeWindowListener(windowListener);
+            if (
+                Thread.getDefaultUncaughtExceptionHandler() ==
+                exceptionHandler
+            ) {
+                Thread.setDefaultUncaughtExceptionHandler(
+                    previousExceptionHandler
+                );
+            }
+        }
+
+        private void beginWindowTransition() {
+            if (closing) return;
+            pauseRendering();
+            scheduleTransitionFinish();
+        }
+
+        private void pauseRendering() {
+            if (closing) return;
+            surface.pauseThread();
+        }
+
+        private void scheduleTransitionFinish() {
+            if (closing) return;
+            settleTimer.restart();
+        }
+
+        private void finishWindowTransition() {
+            if (closing) return;
+            if ((window.getExtendedState() & Frame.ICONIFIED) != 0) return;
+            if (!canvas.isDisplayable()) return;
+
+            if (recoveryPending || surface.isStopped()) {
+                surface.stopThread();
+                surface.startThread();
+            } else {
+                surface.resumeThread();
+            }
+            recoveryPending = false;
+            recoveryDispatchPending = false;
+        }
+
+        private void scheduleRenderRecovery() {
+            if (recoveryDispatchPending) return;
+            recoveryDispatchPending = true;
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    if (closing) {
+                        recoveryDispatchPending = false;
+                        return;
+                    }
+
+                    recoveryPending = true;
+                    // The failing Animation Thread is already terminating.
+                    // Clear its reference and restart only after AWT settles.
+                    surface.stopThread();
+                    scheduleTransitionFinish();
+                }
+            });
+        }
+
+        private boolean isRecoverableBufferError(
+            Thread thread,
+            Throwable error
+        ) {
+            if (
+                thread == null ||
+                !"Animation Thread".equals(thread.getName())
+            ) return false;
+
+            Throwable current = error;
+            while (current != null) {
+                if (
+                    current instanceof IllegalStateException &&
+                    BUFFER_ERROR.equals(current.getMessage())
+                ) return true;
+                current = current.getCause();
+            }
+            return false;
+        }
+
+        private void forwardException(Thread thread, Throwable error) {
+            if (previousExceptionHandler != null) {
+                previousExceptionHandler.uncaughtException(thread, error);
+            } else {
+                error.printStackTrace();
+            }
+        }
     }
 
     public static final class EventBridge {

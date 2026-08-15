@@ -21,6 +21,7 @@ public class DesktopSmoke extends PApplet {
             throw new AssertionError("Unexpected SimpleUI license metadata");
         }
         SimpleUI.initUI(this, "SansSerif", 16);
+        SimpleUI.isWindowsResizeGuardActive();
         taskCore = Core.start(this);
         SimpleUI.setMode(800, 720);
         button = new UIButton("ok", 20, 20, 140, 44, "OK", 16);

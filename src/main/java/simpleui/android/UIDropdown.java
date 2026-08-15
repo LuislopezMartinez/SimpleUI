@@ -151,7 +151,7 @@ public class UIDropdown extends UIElement {
 
         // Flecha
         textAlign(RIGHT, CENTER);
-        text(isOpen ? "???" : "???", x + width - DROPDOWN_ARROW_SIZE, y + height / 2);
+        text(isOpen ? "\u25B2" : "\u25BC", x + width - DROPDOWN_ARROW_SIZE, y + height / 2);
 
         // Men?? desplegable
         if (isOpen) {
