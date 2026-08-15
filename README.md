@@ -1,6 +1,6 @@
 # SimpleUI for Processing Desktop and Android
 
-Current version: **0.5.1**.
+Current version: **0.5.5**.
 
 Designed and developed by **[Luis López Martínez](https://github.com/LuislopezMartinez)**.
 Distributed under the **MIT License**.
@@ -44,6 +44,16 @@ emits `changed` on both platforms.
 
 The independent `simplecore.*` package contains the shared frame-task engine.
 It has no dependency on SimpleUI, Android APIs, `Network.pde` or `NetMessage`.
+
+## Install and update
+
+In Processing, open **Sketch > Import Library... > Add Library...**, search for
+**SimpleUI**, select it and click **Install**. The Contribution Manager also
+offers **Update** when a newer published version is available.
+
+For a manual installation, download `SimpleUI.zip`, extract the `SimpleUI`
+folder into the Processing sketchbook's `libraries` folder and restart the
+IDE. Do not keep two SimpleUI copies in that folder.
 
 Desktop initialization:
 
@@ -99,6 +109,15 @@ sketch does not need to declare `mousePressed`, `mouseDragged`, `mouseReleased`,
 `keyPressed` or `keyTyped`. Rendering remains explicit with
 `SimpleUI.updateAndDrawUI()` so the sketch controls layer order.
 
+On Windows Desktop with the default Java2D/AWT renderer, `initUI(...)` also
+installs a resize guard automatically. It briefly pauses rendering while AWT
+recreates the window buffers and recovers only Processing's transient
+`Buffers have not been created` failure. No extra sketch call is required.
+The guard is not installed on Android, Linux, macOS or OpenGL renderers.
+The Desktop-only method `simpleui.desktop.SimpleUI.isWindowsResizeGuardActive()`
+reports whether it is active; that method is not part of
+`simpleui.android.SimpleUI`.
+
 Applications that need to intercept a key before SimpleUI (for example the
 Android Back key) can install `SimpleUI.setKeyEventInterceptor(...)` and return
 `true` when the event has been handled. Automatic forwarding can be disabled
@@ -146,6 +165,11 @@ The engine intentionally excludes `NetMessage`, `onNetMessage`, route-tag
 conversion and message routing. A project can add those through its own
 interface without coupling the engine to a protocol.
 
+Keep protocol integration in one project adapter rather than spreading route
+registries through the sketch. A small protocol-specific `Task` subclass can
+expose only the concepts application tasks need, such as `routeTag()` and
+`onNetMessage(...)`, while keeping allocation, validation and dispatch private.
+
 Automatic task rendering is enabled by default. For custom layer ordering:
 
 ```java
@@ -169,6 +193,9 @@ Open [`examples/README.md`](examples/README.md) for the complete index and the
 recommended classroom order. Every numbered folder is an independent
 Processing sketch and uses only generated graphics, so no external asset setup
 is required.
+
+The distribution also includes eight non-numbered Desktop/Android sketches:
+`Basic`, `Calendar`, `SimpleCore` and `UnifiedFeatures` for each platform.
 
 ## Build
 

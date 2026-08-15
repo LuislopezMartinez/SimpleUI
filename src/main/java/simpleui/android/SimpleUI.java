@@ -912,12 +912,13 @@ public static void performTapAction(float mx, float myAnchored, float myScrolled
     if (e == null || !e.isVisible || !e.isEnabled) return;
 
     float localY = e.isAnchored() ? myAnchored : myScrolled;
-    if (!isPointInElement(mx, localY, e)) return;
 
     if (e instanceof UIDropdown) {
         UIDropdown dropdown = (UIDropdown)e;
+        if (!dropdown.containsMainBox(mx, localY) &&
+            !dropdown.containsOpenMenu(mx, localY)) return;
         closeAllDropdownsExcept(dropdown);
-        dropdown.mouseReleased();
+        dropdown.handleClickAt(mx, localY);
         if (dropdown.isOpen()) {
             activeDropdown = dropdown;
         } else if (activeDropdown == dropdown) {
@@ -925,6 +926,8 @@ public static void performTapAction(float mx, float myAnchored, float myScrolled
         }
         return;
     }
+
+    if (!isPointInElement(mx, localY, e)) return;
 
     if (e instanceof UIButton) {
         ((UIButton)e).performTapAction();
@@ -1269,7 +1272,7 @@ public static void ensureNativeTextInput() {
 
             final View keyboardRoot = root;
             if (Build.VERSION.SDK_INT >= 30) {
-                getActivity().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+                getActivity().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
                 keyboardRoot.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
                     public WindowInsets onApplyWindowInsets(View view, WindowInsets insets) {
                         int fullHeight = getActivity().getResources().getDisplayMetrics().heightPixels;
@@ -1294,11 +1297,16 @@ public static void ensureNativeTextInput() {
             });
 
             nativeInputField = new EditText(getActivity());
+            nativeInputField.setFocusable(true);
+            nativeInputField.setFocusableInTouchMode(true);
             nativeInputField.setSingleLine(true);
             nativeInputField.setImeOptions(EditorInfo.IME_ACTION_DONE);
+            nativeInputField.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            nativeInputField.setTextColor(android.graphics.Color.TRANSPARENT);
+            nativeInputField.setCursorVisible(false);
             nativeInputField.setAlpha(0.01f);
-            nativeInputField.setX(-10000);
-            nativeInputField.setY(-10000);
+            nativeInputField.setX(0);
+            nativeInputField.setY(0);
             nativeInputField.setMinWidth(1);
             nativeInputField.setMinimumWidth(1);
 
@@ -1340,7 +1348,7 @@ public static void ensureNativeTextInput() {
             }
             );
 
-            root.addView(nativeInputField, new FrameLayout.LayoutParams(1, 1));
+            root.addView(nativeInputField, new FrameLayout.LayoutParams(2, 2));
             nativeInputReady = true;
         }
     }
@@ -1354,14 +1362,18 @@ public static void syncNativeInputFromActiveTextField() {
     getActivity().runOnUiThread(new Runnable() {
         public void run() {
             if (nativeInputField == null) return;
-            configureNativeInputForActiveField();
-            String currentText = nativeInputField.getText() == null ? "" : nativeInputField.getText().toString();
-            if (currentText.equals(targetText)) return;
-
             nativeInputInternalChange = true;
-            nativeInputField.setText(targetText);
-            nativeInputField.setSelection(nativeInputField.getText().length());
-            nativeInputInternalChange = false;
+            try {
+                // setInputType() can notify the TextWatcher while switching between
+                // a single-line field and a text area. Keep the bridge muted until
+                // the native editor contains the new active field's own value.
+                configureNativeInputForActiveField();
+                String currentText = nativeInputField.getText() == null ? "" : nativeInputField.getText().toString();
+                if (!currentText.equals(targetText)) nativeInputField.setText(targetText);
+                nativeInputField.setSelection(nativeInputField.getText().length());
+            } finally {
+                nativeInputInternalChange = false;
+            }
         }
     }
     );
@@ -1372,20 +1384,42 @@ public static void openKeyboard() {
     getActivity().runOnUiThread(new Runnable() {
         public void run() {
             if (nativeInputField != null && activeTextField != null) {
-                configureNativeInputForActiveField();
                 nativeInputInternalChange = true;
-                nativeInputField.setText(activeTextField.getText());
-                nativeInputField.setSelection(nativeInputField.getText().length());
-                nativeInputInternalChange = false;
+                try {
+                    // Reconfiguring EditText may emit a text callback containing
+                    // the previous control's value. Do not let it leak into the
+                    // field that has just received focus.
+                    configureNativeInputForActiveField();
+                    nativeInputField.setText(activeTextField.getText());
+                    nativeInputField.setSelection(nativeInputField.getText().length());
+                } finally {
+                    nativeInputInternalChange = false;
+                }
                 nativeInputField.requestFocus();
             }
-            InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null && nativeInputField != null) {
-                imm.showSoftInput(nativeInputField, InputMethodManager.SHOW_IMPLICIT);
-            }
+            requestNativeKeyboard(0);
         }
     }
     );
+}
+
+private static void requestNativeKeyboard(final int attempt) {
+    if (nativeInputField == null || activeTextField == null) return;
+    long delay = attempt == 0 ? 0L : 140L;
+    nativeInputField.postDelayed(new Runnable() {
+        public void run() {
+            if (nativeInputField == null || activeTextField == null || !activeTextField.isFocused()) return;
+            nativeInputField.requestFocus();
+            InputMethodManager imm = (InputMethodManager)getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm == null) return;
+            imm.restartInput(nativeInputField);
+            imm.showSoftInput(nativeInputField, 0);
+            if (Build.VERSION.SDK_INT >= 30 && getActivity().getWindow().getInsetsController() != null) {
+                getActivity().getWindow().getInsetsController().show(WindowInsets.Type.ime());
+            }
+            if (attempt < 2 && !androidKeyboardVisible) requestNativeKeyboard(attempt + 1);
+        }
+    }, delay);
 }
 
 public static void configureNativeInputForActiveField() {

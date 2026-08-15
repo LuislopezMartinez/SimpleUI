@@ -190,6 +190,10 @@ if ($LASTEXITCODE -ne 0) { throw "SimpleCore smoke test compilation failed" }
 if ($LASTEXITCODE -ne 0) { throw "SimpleCore singleton and lifecycle test failed" }
 & javac --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Android public API smoke test failed" }
+& javac --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidDropdownRegression.java')
+if ($LASTEXITCODE -ne 0) { throw "Android dropdown regression test compilation failed" }
+& java -classpath "$processingAndroidCore;$androidApi;$output;$testClasses" AndroidDropdownRegression
+if ($LASTEXITCODE -ne 0) { throw "Android dropdown selection regression test failed" }
 & javac --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\view-hooks\AndroidUIViewHooksCompileSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Android external UIView hook test compilation failed" }
 
@@ -201,4 +205,4 @@ if (-not $SkipD8 -and $d8Jar -and (Test-Path -LiteralPath $d8Jar)) {
 }
 
 Write-Host "Built $output"
-Write-Host 'Desktop/Android parity, UIView hooks, automatic events, calendar, SimpleCore and D8 checks passed.'
+Write-Host 'Desktop/Android parity, UIView hooks, automatic events, dropdown selection, calendar, SimpleCore and D8 checks passed.'

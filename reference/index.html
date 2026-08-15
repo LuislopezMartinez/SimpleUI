@@ -7,7 +7,7 @@
   <meta name="copyright" content="Copyright (c) 2026 Luis López Martínez">
   <meta name="license" content="MIT">
   <meta name="description" content="Manual completo de SimpleUI para Processing Desktop y Android">
-  <title>SimpleUI 0.5.1 · Manual y referencia</title>
+  <title>SimpleUI 0.5.5 · Manual y referencia</title>
   <style>
     :root {
       --ink: #172033; --muted: #61708a; --line: #dce3ee; --paper: #fff;
@@ -110,7 +110,7 @@
     <aside aria-label="Índice de la documentación">
       <div class="brand">
         <h1>SimpleUI</h1>
-        <p>Processing Desktop + Android · v0.5.1</p>
+        <p>Processing Desktop + Android · v0.5.5</p>
         <input class="search" id="search" type="search" placeholder="Buscar clase o concepto…" aria-label="Buscar en la documentación">
       </div>
       <nav id="nav">
@@ -161,7 +161,7 @@
 
     <main>
       <section class="page active" id="inicio" data-search="presentacion introduccion simpleui processing desktop android biblioteca libreria">
-        <div class="eyebrow">Manual docente · versión 0.5.1</div>
+        <div class="eyebrow">Manual docente · versión 0.5.5</div>
         <h1>SimpleUI para Processing</h1>
         <p class="lead">Una única librería para construir interfaces gráficas en proyectos de Processing Desktop y Processing for Android, acompañada de un calendario y del motor de tareas SimpleCore.</p>
         <div class="callout good"><strong>Autoría.</strong> SimpleUI y SimpleCore han sido diseñadas y desarrolladas por <strong>Luis López Martínez</strong> y se distribuyen bajo licencia MIT.</div>
@@ -195,7 +195,8 @@ void draw() {
       <section class="page" id="instalacion" data-search="instalacion jar import setup initui draw processing libraries">
         <div class="eyebrow">Primeros pasos</div><h1>Instalación y arranque</h1>
         <div class="badges"><span class="badge both">Desktop y Android</span></div>
-        <h2>Instalar</h2><p>Copia la carpeta completa <code>SimpleUI</code> dentro de la carpeta <code>libraries</code> del sketchbook de Processing. El archivo cargado por Processing es <code>SimpleUI/library/SimpleUI.jar</code>. Reinicia el IDE después de instalar o actualizar la librería.</p>
+        <h2>Instalar o actualizar desde Processing</h2><p>Abre <strong>Sketch → Import Library… → Add Library…</strong>, busca <strong>SimpleUI</strong>, selecciónala y pulsa <strong>Install</strong>. Cuando exista una versión publicada más reciente, el gestor de contribuciones mostrará la opción <strong>Update</strong>.</p>
+        <h2>Instalación manual</h2><p>Como alternativa, descarga <code>SimpleUI.zip</code> y copia la carpeta completa <code>SimpleUI</code> dentro de la carpeta <code>libraries</code> del sketchbook de Processing. El archivo cargado por Processing es <code>SimpleUI/library/SimpleUI.jar</code>. Evita conservar dos copias de SimpleUI y reinicia el IDE después de instalar o actualizar.</p>
         <h2>Elegir el import</h2>
         <div class="code-wrap"><button class="copy">Copiar</button><pre><code>// Processing Desktop
 import simpleui.desktop.*;
@@ -261,6 +262,7 @@ void draw() {
           <tr><td>Controles, eventos, vistas y calendario</td><td class="yes">Sí</td><td class="yes">Sí</td></tr><tr><td>SimpleCore</td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
           <tr><td>Teclado nativo y ajuste al teclado virtual</td><td>Teclado Processing</td><td class="yes">Sí</td></tr><tr><td><code>UISignalMeter</code></td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
           <tr><td><code>UIRect</code></td><td class="yes">Sí</td><td class="yes">Sí</td></tr><tr><td>Footer y recibo de lectura en <code>chatArea</code></td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
+          <tr><td>Protección automática de resize Java2D/AWT</td><td class="yes">Windows</td><td>No aplicable</td></tr>
         </tbody></table></div>
         <h2>Contrato común desde 0.5.0</h2>
         <ul><li><strong>Controles y modelos:</strong> todas las clases ofrecen los mismos constructores y métodos públicos en los dos paquetes.</li><li><strong>Resolución virtual:</strong> <code>setMode()</code>, <code>UIScaleMode</code> y las conversiones de coordenadas funcionan igual en Desktop y Android.</li><li><strong>UISwitch:</strong> ofrece una selección booleana compacta y emite <code>changed</code>.</li><li><strong>UIDropdown:</strong> emite <code>changed</code>.</li><li><strong>UISlider:</strong> emite <code>changed</code> durante el movimiento y <code>released</code> al terminar.</li><li><strong>Modales:</strong> admiten tanto <code>actionId</code> con handler como callbacks <code>Runnable</code>.</li><li><strong>chatArea:</strong> admite footer y recibo de lectura en ambas plataformas.</li></ul>
@@ -271,7 +273,8 @@ void draw() {
         <div class="eyebrow">Clase coordinadora</div><h1>SimpleUI</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge advanced">Métodos estáticos</span></div>
         <p><code>SimpleUI</code> mantiene el host de Processing, la colección de controles, el tema, la escala, los estados de interacción y el receptor global de eventos.</p>
         <h2>API de uso habitual</h2><div class="api">
-          <div class="api-row"><code>initUI(this, fuente, tamaño)</code><p>Conecta el sketch, crea la fuente, carga el tema y registra los eventos.</p></div>
+          <div class="api-row"><code>initUI(this, fuente, tamaño)</code><p>Conecta el sketch, crea la fuente, carga el tema y registra los eventos. En Windows con Java2D también instala automáticamente la protección de redimensionado.</p></div>
+          <div class="api-row"><code>isWindowsResizeGuardActive() <span class="badge desktop">Solo Desktop</span></code><p>Indica si está activa la protección automática de buffers AWT. En <code>simpleui.desktop.SimpleUI</code> devuelve <code>false</code> fuera de Windows/Java2D; el método no existe en <code>simpleui.android.SimpleUI</code>.</p></div>
           <div class="api-row"><code>setMode(ancho, alto)</code><p>Define una resolución virtual y usa el modo proporcional <code>FIT</code>.</p></div>
           <div class="api-row"><code>setMode(ancho, alto, UIScaleMode)</code><p>Elige entre <code>FIT</code>, <code>FILL</code> y <code>RESPONSIVE</code>.</p></div>
           <div class="api-row"><code>getLogicalWidth() / getLogicalHeight()</code><p>Devuelve el área disponible en coordenadas de diseño.</p></div>
@@ -383,7 +386,7 @@ SimpleUI.addUIElement(led);</code></pre></div>
         <div class="code-wrap signature"><pre><code>UICheckbox(id, x, y, size, label, fontSize)
 UISwitch(id, x, y, w, h, label, initialValue, fontSize)</code></pre></div>
         <p>Ambos controles representan un valor booleano. <code>UICheckbox</code> usa una casilla tradicional; <code>UISwitch</code> ofrece un interruptor compacto con pista, cursor y etiqueta, integrado con escala, temas y eventos.</p>
-        <div class="api"><div class="api-row"><code>isChecked()</code><p>Consulta el estado actual.</p></div><div class="api-row"><code>setChecked(boolean)</code><p>Modifica el estado desde el programa sin emitir un evento.</p></div><div class="api-row"><code>setLabel(texto)</code><p>Cambia la etiqueta mostrada junto al interruptor.</p></div><div class="api-row"><code>toggle()</code><p>Invierte el estado y emite <code>changed</code>. No actúa si el control está deshabilitado.</p></div></div>
+        <div class="api"><div class="api-row"><code>isChecked()</code><p>Ambos controles: consulta el estado actual.</p></div><div class="api-row"><code>setChecked(boolean)</code><p>Ambos controles: modifica el estado desde el programa sin emitir un evento.</p></div><div class="api-row"><code>switch.setLabel(texto)</code><p>Solo <code>UISwitch</code>: cambia la etiqueta mostrada junto al interruptor.</p></div><div class="api-row"><code>switch.toggle()</code><p>Solo <code>UISwitch</code>: invierte el estado y emite <code>changed</code>. No actúa si el control está deshabilitado.</p></div></div>
         <p class="event-list"><span class="badge event">Evento</span> Los dos emiten <code>changed</code>; <code>data</code> contiene el nuevo <code>boolean</code>.</p>
         <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UICheckbox sonido = new UICheckbox("sonido", 30, 40, 24, "Activar sonido", 17);
 sonido.setChecked(true);
@@ -426,7 +429,7 @@ if (element == volumen && action.equals("changed")) {
         <div class="eyebrow">Controles</div><h1>UIDropdown y UITabs</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
         <div class="code-wrap signature"><pre><code>UIDropdown(id, x, y, w, h, String[] options, fontSize)
 UITabs(id, x, y, w, h, String[] tabs, fontSize)</code></pre></div>
-        <h2>UIDropdown</h2><div class="api"><div class="api-row"><code>getSelectedValue()</code><p>Devuelve la opción actual.</p></div><div class="api-row"><code>getSelectedIndex() / setSelectedIndex(i)</code><p>Consulta o selecciona por índice.</p></div><div class="api-row"><code>setOptions(String[])</code><p>Reemplaza todas las opciones.</p></div><div class="api-row"><code>isOpen() / setOpen(boolean)</code><p>Consulta o cambia la apertura.</p></div></div><p class="event-list"><span class="badge event">Evento</span> <code>changed</code> con el texto elegido.</p>
+        <h2>UIDropdown</h2><div class="api"><div class="api-row"><code>getSelectedValue()</code><p>Devuelve la opción actual.</p></div><div class="api-row"><code>getSelectedIndex() / setSelectedIndex(i)</code><p>Consulta o selecciona por índice.</p></div><div class="api-row"><code>setOptions(String[])</code><p>Reemplaza todas las opciones.</p></div><div class="api-row"><code>isOpen() / setOpen(boolean)</code><p>Consulta o cambia la apertura.</p></div></div><p>Al tocar una fila del menú expandido, tanto Desktop como Android aplican la opción, cierran el menú y actualizan inmediatamente el valor seleccionado.</p><p class="event-list"><span class="badge event">Evento</span> <code>changed</code> con el texto elegido.</p>
         <h2>UITabs</h2><div class="api"><div class="api-row"><code>getSelectedIndex()</code><p>Índice de pestaña activa.</p></div><div class="api-row"><code>getSelectedLabel()</code><p>Etiqueta activa.</p></div><div class="api-row"><code>setSelectedIndex(i)</code><p>Selecciona una pestaña.</p></div></div><p class="event-list"><span class="badge event">Evento</span> <code>tabChanged</code> con la etiqueta elegida.</p>
         <div class="code-wrap"><button class="copy">Copiar</button><pre><code>String[] modos = { "Básico", "Avanzado", "Experto" };
 UIDropdown selector = new UIDropdown("modo", 30, 40, 220, 44, modos, 17);
@@ -456,6 +459,7 @@ SimpleUI.addUIElement(alumnos);</code></pre></div>
         <div class="code-wrap signature"><pre><code>UITextField(id, x, y, w, h, placeholder, fontSize)
 UITextArea(id, x, y, w, h, placeholder, fontSize)</code></pre></div>
         <p><code>UITextField</code> introduce una sola línea. <code>UITextArea</code> admite varias líneas, ajuste de texto y desplazamiento interno.</p>
+        <div class="callout good"><strong>Teclado Android desde 0.5.4.</strong> El editor nativo solicita el teclado con reintentos y usa los insets de la ventana para mantener visible la interfaz. Desde 0.5.5, al cambiar el foco entre <code>UITextField</code> y <code>UITextArea</code>, cada control conserva su propio texto sin copiar el valor del control anterior.</div>
         <div class="api"><div class="api-row"><code>getText() / setText(texto)</code><p>Lee o escribe el contenido.</p></div><div class="api-row"><code>setMaxLen(n)</code><p>Limita el número de caracteres.</p></div><div class="api-row"><code>setUppercase(boolean)</code><p>Convierte la entrada a mayúsculas.</p></div><div class="api-row"><code>setFocused(boolean) / isFocused()</code><p>Controla el foco.</p></div><div class="api-row"><code>submitAndCloseKeyboard()</code><p>Confirma y cierra el teclado.</p></div><div class="api-row"><code>setTextColor() / setBorderColor()</code><p>Personaliza los colores; los métodos <code>clear…()</code> recuperan el tema.</p></div><div class="api-row"><code>area.scrollToBottom()</code><p>Desplaza el área multilínea hasta el final.</p></div></div>
         <p class="event-list"><span class="badge event">Eventos</span> <code>changed</code> durante la edición y <code>submitted</code> al confirmar; ambos entregan el texto.</p>
         <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UITextField nombre = new UITextField("nombre", 30, 40, 300, 44, "Tu nombre", 17);
@@ -574,7 +578,7 @@ println(inicio.differenceInDays(examen));
 
 UIDateTime entrada = new UIDateTime(2026, 9, 15, 9, 0, 0);
 UIDateTime salida  = new UIDateTime(2026, 9, 15, 11, 30, 0);
-UITimeSpan duracion = salida.difference(entrada);
+UITimeSpan duracion = entrada.difference(salida);
 println(duracion.getTotalMinutes()); // 150</code></pre></div>
         <p><code>UIDateComparator</code>, <code>UIDateTimeComparator</code> y <code>UICalendarEventDateComparator</code> son comparadores auxiliares usados para ordenar colecciones.</p>
       </section>
@@ -620,12 +624,12 @@ void setup() {
   new Pelota(loadImage("pelota.png"));
 }</code></pre></div>
         <h2>Estado y API</h2><div class="api"><div class="api-row"><code>id, type, className, father, liveFrames</code><p>Identidad, clasificación, relación y edad.</p></div><div class="api-row"><code>priority</code><p>Las prioridades mayores actualizan primero.</p></div><div class="api-row"><code>properties</code><p><code>StringDict</code> para datos adicionales.</p></div><div class="api-row"><code>kill() / setKillProtection()</code><p>Controlan la vida y protección.</p></div><div class="api-row"><code>setGraph() / clearGraph()</code><p>Asigna imagen de representación.</p></div><div class="api-row"><code>setPosition(), setZ(), setScale(), setAxisScale()</code><p>Transformaciones encadenables.</p></div><div class="api-row"><code>setAngle(), setAlpha(), setTint(), setVisible()</code><p>Apariencia encadenable.</p></div><div class="api-row"><code>getDist(task) / getAngle(task)</code><p>Relación espacial con otra tarea.</p></div><div class="api-row"><code>advance(ángulo, distancia)</code><p>Desplaza usando grados.</p></div><div class="api-row"><code>exists() / isDrawable()</code><p>Consulta estado.</p></div></div>
-        <div class="callout"><strong>Sin red.</strong> SimpleCore no contiene <code>NetMessage</code>, <code>onNetMessage()</code> ni conversiones de rutas. La comunicación de red puede añadirse después mediante una interfaz del proyecto.</div>
+        <div class="callout"><strong>Sin red.</strong> SimpleCore no contiene <code>NetMessage</code>, <code>onNetMessage()</code> ni conversiones de rutas. La comunicación de red puede añadirse mediante un único adaptador del proyecto. Para mantener limpio el sketch, ese adaptador puede definir una subclase específica de <code>Task</code> que exponga solamente operaciones como <code>routeTag()</code> y <code>onNetMessage(...)</code>, manteniendo privados el registro, la validación y el despacho.</div>
       </section>
 
       <section class="page" id="ejemplos" data-search="ejemplos curso alumnos desktop android controles login calendario simplecore videojuego animacion particulas hover touch">
-        <div class="eyebrow">Itinerario para el aula</div><h1>52 sketches: 26 parejas Desktop y Android</h1>
-        <p class="lead">Cada ejercicio Desktop tiene una versión Android equivalente. Los nombres y la estructura se mantienen para que el alumno pueda comparar ambas plataformas línea por línea.</p>
+        <div class="eyebrow">Itinerario para el aula</div><h1>60 sketches: 26 parejas numeradas y 8 demostraciones</h1>
+        <p class="lead">Los 52 ejercicios numerados forman 26 parejas Desktop/Android. Los nombres y la estructura se mantienen para que el alumno pueda comparar ambas plataformas línea por línea.</p>
         <div class="cards">
           <div class="card"><h3>01 a 09</h3><p>Botones, imagen, etiqueta, indicador, checkbox, slider, progreso, desplegable y pestañas.</p></div>
           <div class="card"><h3>10 a 18</h3><p>Lista, tabla, entradas de texto y número, panel, chat, medidor RSSI y calendario.</p></div>
@@ -638,6 +642,7 @@ void setup() {
         <h2>Principios didácticos</h2>
         <ul><li>Variables con nombres que explican su función.</li><li>Un único concepto nuevo por ejemplo de control.</li><li>Sin recursos externos: iconos y sprites se generan por código.</li><li>Sin callbacks manuales de ratón o teclado; se utiliza el puente automático de SimpleUI.</li></ul>
         <div class="callout good"><strong>Orden sugerido:</strong> 01, 05, 06 y 26 para introducir eventos y estados; 10, 12 y 18 para trabajar datos; 19 a 21 para construir aplicaciones; 22 a 25 para introducir tareas y animación.</div>
+        <div class="callout"><strong>Demostraciones adicionales:</strong> la distribución incluye también las parejas <code>Basic</code>, <code>Calendar</code>, <code>SimpleCore</code> y <code>UnifiedFeatures</code>, con versiones Desktop y Android.</div>
         <div class="callout warning"><strong>Login didáctico:</strong> el campo de clave no está enmascarado. El ejemplo enseña composición y validación, no autenticación segura.</div>
       </section>
 
@@ -686,7 +691,7 @@ void setup() {
         <p><strong>SimpleUI y SimpleCore han sido diseñadas y desarrolladas por Luis López Martínez.</strong> Copyright © 2026 Luis López Martínez.</p>
         <p>La biblioteca se distribuye bajo licencia MIT. Permite usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y vender copias, conservando el aviso de copyright y la licencia.</p>
         <div class="callout warning">El software se proporciona «tal cual», sin garantías. Consulta el archivo <code>LICENSE</code> incluido en la raíz de la biblioteca para leer el texto legal completo.</div>
-        <h2>Datos de esta versión</h2><table><tbody><tr><th>Nombre</th><td>SimpleUI</td></tr><tr><th>Versión</th><td>0.5.1</td></tr><tr><th>Diseño y desarrollo</th><td><a href="https://github.com/LuislopezMartinez">Luis López Martínez</a></td></tr><tr><th>Copyright</th><td>© 2026 Luis López Martínez</td></tr><tr><th>Licencia</th><td>MIT</td></tr><tr><th>Paquetes</th><td><code>simpleui.desktop</code>, <code>simpleui.android</code>, <code>simplecore</code></td></tr><tr><th>Artefacto</th><td><code>library/SimpleUI.jar</code></td></tr><tr><th>Última actualización</th><td>24 de julio de 2026</td></tr><tr><th>Palabras clave</th><td>GUI, widgets, controles, interfaces, Desktop, Android, Processing</td></tr></tbody></table>
+        <h2>Datos de esta versión</h2><table><tbody><tr><th>Nombre</th><td>SimpleUI</td></tr><tr><th>Versión</th><td>0.5.5</td></tr><tr><th>Diseño y desarrollo</th><td><a href="https://github.com/LuislopezMartinez">Luis López Martínez</a></td></tr><tr><th>Copyright</th><td>© 2026 Luis López Martínez</td></tr><tr><th>Licencia</th><td>MIT</td></tr><tr><th>Paquetes</th><td><code>simpleui.desktop</code>, <code>simpleui.android</code>, <code>simplecore</code></td></tr><tr><th>Artefacto</th><td><code>library/SimpleUI.jar</code></td></tr><tr><th>Última actualización</th><td>15 de agosto de 2026</td></tr><tr><th>Palabras clave</th><td>GUI, widgets, controles, interfaces, Desktop, Android, Processing</td></tr></tbody></table>
         <h2>Compatibilidad comprobada</h2>
         <ul>
           <li><strong>Windows:</strong> compilación y pruebas completas con Processing 4.5.2.</li>
@@ -697,7 +702,7 @@ void setup() {
         <p><a href="https://github.com/LuislopezMartinez/SimpleUI">Código fuente y seguimiento del proyecto</a> · <a href="https://github.com/LuislopezMartinez/SimpleUI/releases/latest/download/SimpleUI.zip">Descargar la última versión</a></p>
       </section>
 
-      <footer>SimpleUI 0.5.1 · Diseñada y desarrollada por Luis López Martínez · Licencia MIT</footer>
+      <footer>SimpleUI 0.5.5 · Diseñada y desarrollada por Luis López Martínez · Licencia MIT</footer>
     </main>
   </div>
   <script>
