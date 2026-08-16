@@ -24,8 +24,6 @@ All notable changes to SimpleUI are documented in this file.
 - Fixes Android dropdown row selection when tapping the expanded menu outside
   the control's closed bounds.
 - Adds an executable Android regression test for expanded dropdown selection.
-- Validates the compiled library integration in the LoraNet BBS and Android
-  clients.
 
 ## 0.5.2
 
