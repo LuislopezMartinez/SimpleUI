@@ -43,7 +43,7 @@ while its value changes and `released` when the gesture ends. `UIDropdown`
 emits `changed` on both platforms.
 
 The independent `simplecore.*` package contains the shared frame-task engine.
-It has no dependency on SimpleUI, Android APIs, `Network.pde` or `NetMessage`.
+It has no dependency on SimpleUI or Android APIs.
 
 ## Install and update
 
@@ -159,16 +159,6 @@ class MyTask extends Task {
 instance; attempting to start it with another `PApplet` throws an exception.
 `Core.shutdown()` unregisters Processing callbacks, invokes `onDestroy()` once
 for every task, clears all state and permits a clean restart.
-
-Task identifiers are positive Java integers and are not tied to a network tag.
-The engine intentionally excludes `NetMessage`, `onNetMessage`, route-tag
-conversion and message routing. A project can add those through its own
-interface without coupling the engine to a protocol.
-
-Keep protocol integration in one project adapter rather than spreading route
-registries through the sketch. A small protocol-specific `Task` subclass can
-expose only the concepts application tasks need, such as `routeTag()` and
-`onNetMessage(...)`, while keeping allocation, validation and dispatch private.
 
 Automatic task rendering is enabled by default. For custom layer ordering:
 
