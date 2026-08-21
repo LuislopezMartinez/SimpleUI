@@ -3,6 +3,7 @@ param(
     [string]$ProcessingAndroidCore = $env:SIMPLEUI_PROCESSING_ANDROID_CORE,
     [string]$AndroidApi = $env:SIMPLEUI_ANDROID_API,
     [string]$D8Jar = $env:SIMPLEUI_D8_JAR,
+    [string]$JavaHome = $env:SIMPLEUI_JAVA_HOME,
     [switch]$SkipD8
 )
 
@@ -11,6 +12,25 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $testRoot = Split-Path -Parent $projectRoot
 $documents = [Environment]::GetFolderPath('MyDocuments')
+
+$embeddedProcessingJavaHome = Join-Path $env:ProgramFiles 'Processing\app\resources\jdk'
+if (-not $JavaHome -and (Test-Path -LiteralPath (Join-Path $embeddedProcessingJavaHome 'bin\javac.exe'))) {
+    $JavaHome = $embeddedProcessingJavaHome
+}
+if ($JavaHome) {
+    $javaExe = Join-Path $JavaHome 'bin\java.exe'
+    $javacExe = Join-Path $JavaHome 'bin\javac.exe'
+    $jarExe = Join-Path $JavaHome 'bin\jar.exe'
+    $javapExe = Join-Path $JavaHome 'bin\javap.exe'
+    foreach ($tool in @($javaExe, $javacExe, $jarExe, $javapExe)) {
+        if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) { throw "Incomplete Java toolchain: $JavaHome" }
+    }
+} else {
+    $javaExe = (Get-Command java -ErrorAction Stop).Source
+    $javacExe = (Get-Command javac -ErrorAction Stop).Source
+    $jarExe = (Get-Command jar -ErrorAction Stop).Source
+    $javapExe = (Get-Command javap -ErrorAction Stop).Source
+}
 
 function Resolve-ExplicitFile {
     param(
@@ -99,6 +119,7 @@ foreach ($dependency in @(
 Write-Host "Processing Desktop core: $processingDesktopCore"
 Write-Host "Processing Android core: $processingAndroidCore"
 Write-Host "Android API: $androidApi"
+Write-Host "Java compiler: $javacExe"
 if ($SkipD8) {
     Write-Host 'Android D8 check: skipped'
 } elseif ($d8Jar) {
@@ -130,23 +151,31 @@ $desktopSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simpleui\des
 $androidSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simpleui\android') -File -Filter '*.java' | ForEach-Object { $_.FullName }
 $commonSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simplecore') -File -Filter '*.java' | ForEach-Object { $_.FullName }
 
-& javac --release 8 -encoding UTF-8 -classpath $processingDesktopCore -d $desktopClasses $desktopSources
+& $javacExe --release 8 -encoding UTF-8 -classpath $processingDesktopCore -d $desktopClasses $desktopSources
 if ($LASTEXITCODE -ne 0) { throw "javac failed with exit code $LASTEXITCODE" }
-& javac --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi" -d $androidClasses $androidSources
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi" -d $androidClasses $androidSources
 if ($LASTEXITCODE -ne 0) { throw "Android javac failed with exit code $LASTEXITCODE" }
-& javac --release 8 -encoding UTF-8 -classpath $processingDesktopCore -d $commonClasses $commonSources
+& $javacExe --release 8 -encoding UTF-8 -classpath $processingDesktopCore -d $commonClasses $commonSources
 if ($LASTEXITCODE -ne 0) { throw "SimpleCore javac failed with exit code $LASTEXITCODE" }
 
 if (Test-Path -LiteralPath $output) {
     Remove-Item -LiteralPath $output -Force
 }
-& jar --create --file $output --manifest $manifest -C $desktopClasses . -C $androidClasses . -C $commonClasses . -C $projectRoot LICENSE
+& $jarExe --create --file $output --manifest $manifest -C $desktopClasses . -C $androidClasses . -C $commonClasses . -C $projectRoot LICENSE
 if ($LASTEXITCODE -ne 0) { throw "jar failed with exit code $LASTEXITCODE" }
+
+# Processing Android's Android2D renderer throws from noClip() on current
+# Android Canvas implementations. UITextArea must contain its content using
+# geometry instead of invoking the renderer clip state.
+$androidTextAreaBytecode = (& $javapExe -classpath $output -c 'simpleui.android.UITextArea') -join "`n"
+if ($androidTextAreaBytecode -match 'simpleui/android/SimpleUI\.(clip|noClip)') {
+    throw 'Android UITextArea must not invoke SimpleUI.clip() or SimpleUI.noClip()'
+}
 
 # Every widget/model class must expose the same public constructors and methods
 # on Desktop and Android. SimpleUI itself is excluded because it intentionally
 # contains Android platform services such as the native keyboard bridge.
-$jarEntries = & jar tf $output
+$jarEntries = & $jarExe tf $output
 $desktopApiClasses = $jarEntries |
     Where-Object { $_ -match '^simpleui/desktop/[^/$]+\.class$' } |
     ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_) } |
@@ -158,10 +187,10 @@ $androidApiClasses = $jarEntries |
 $classDifference = Compare-Object $desktopApiClasses $androidApiClasses
 if ($classDifference) { throw "Desktop and Android public class sets differ: $classDifference" }
 foreach ($className in ($desktopApiClasses | Where-Object { $_ -ne 'SimpleUI' })) {
-    $desktopPublicApi = (& javap -classpath $output -public "simpleui.desktop.$className") |
+    $desktopPublicApi = (& $javapExe -classpath $output -public "simpleui.desktop.$className") |
         ForEach-Object { $_ -replace 'simpleui\.desktop\.', 'simpleui.' } |
         Where-Object { $_ -match '\(' }
-    $androidPublicApi = (& javap -classpath $output -public "simpleui.android.$className") |
+    $androidPublicApi = (& $javapExe -classpath $output -public "simpleui.android.$className") |
         ForEach-Object { $_ -replace 'simpleui\.android\.', 'simpleui.' } |
         Where-Object { $_ -match '\(' }
     $apiDifference = Compare-Object $desktopPublicApi $androidPublicApi
@@ -170,37 +199,41 @@ foreach ($className in ($desktopApiClasses | Where-Object { $_ -ne 'SimpleUI' })
 
 if (Test-Path -LiteralPath $testClasses) { Remove-Item -LiteralPath $testClasses -Recurse -Force }
 New-Item -ItemType Directory -Path $testClasses -Force | Out-Null
-& javac --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopSmoke.java')
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Desktop public API smoke test failed" }
-& javac --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopEventBridgeSmoke.java')
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopEventBridgeSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Desktop event bridge smoke test compilation failed" }
-& java -classpath "$processingDesktopCore;$output;$testClasses" DesktopEventBridgeSmoke
+& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" DesktopEventBridgeSmoke
 if ($LASTEXITCODE -ne 0) { throw "Desktop event bridge lifecycle test failed" }
-& javac --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\view-hooks\DesktopUIViewHooksSmoke.java')
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopTextCursorSmoke.java')
+if ($LASTEXITCODE -ne 0) { throw "Desktop text cursor regression test compilation failed" }
+& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" DesktopTextCursorSmoke
+if ($LASTEXITCODE -ne 0) { throw "Desktop text cursor regression test failed" }
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\view-hooks\DesktopUIViewHooksSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Desktop external UIView hook test compilation failed" }
-& java -classpath "$processingDesktopCore;$output;$testClasses" DesktopUIViewHooksSmoke
+& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" DesktopUIViewHooksSmoke
 if ($LASTEXITCODE -ne 0) { throw "Desktop external UIView hook test failed" }
-& javac --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopCalendarSmoke.java')
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopCalendarSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Desktop calendar smoke test compilation failed" }
-& java -classpath "$processingDesktopCore;$output;$testClasses" DesktopCalendarSmoke
+& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" DesktopCalendarSmoke
 if ($LASTEXITCODE -ne 0) { throw "Desktop calendar model test failed" }
-& javac --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\SimpleCoreSmoke.java')
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\SimpleCoreSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "SimpleCore smoke test compilation failed" }
-& java -classpath "$processingDesktopCore;$output;$testClasses" SimpleCoreSmoke
+& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" SimpleCoreSmoke
 if ($LASTEXITCODE -ne 0) { throw "SimpleCore singleton and lifecycle test failed" }
-& javac --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidSmoke.java')
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Android public API smoke test failed" }
-& javac --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidDropdownRegression.java')
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidDropdownRegression.java')
 if ($LASTEXITCODE -ne 0) { throw "Android dropdown regression test compilation failed" }
-& java -classpath "$processingAndroidCore;$androidApi;$output;$testClasses" AndroidDropdownRegression
+& $javaExe -classpath "$processingAndroidCore;$androidApi;$output;$testClasses" AndroidDropdownRegression
 if ($LASTEXITCODE -ne 0) { throw "Android dropdown selection regression test failed" }
-& javac --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\view-hooks\AndroidUIViewHooksCompileSmoke.java')
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\view-hooks\AndroidUIViewHooksCompileSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Android external UIView hook test compilation failed" }
 
 if (-not $SkipD8 -and $d8Jar -and (Test-Path -LiteralPath $d8Jar)) {
     if (Test-Path -LiteralPath $dexOutput) { Remove-Item -LiteralPath $dexOutput -Recurse -Force }
     New-Item -ItemType Directory -Path $dexOutput -Force | Out-Null
-    & java -cp $d8Jar com.android.tools.r8.D8 --min-api 21 --lib $androidApi --lib $processingAndroidCore --output $dexOutput $output
+    & $javaExe -cp $d8Jar com.android.tools.r8.D8 --min-api 21 --lib $androidApi --lib $processingAndroidCore --output $dexOutput $output
     if ($LASTEXITCODE -ne 0) { throw "Android D8 smoke test failed" }
 }
 

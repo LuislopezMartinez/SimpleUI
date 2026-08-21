@@ -8,6 +8,12 @@ import static processing.core.PConstants.*;
 import static simpleui.desktop.SimpleUI.*;
 
 public class UITextArea extends UITextInputBase {
+  public static class VisualLine {
+    public String text;
+    public int start;
+    public int end;
+    public VisualLine(String text, int start, int end) { this.text = text; this.start = start; this.end = end; }
+  }
   public String textValue = "";
   public String placeholder = "";
   public int fontSize;
@@ -40,14 +46,15 @@ public class UITextArea extends UITextInputBase {
     if (uppercase) t = t.toUpperCase();
     if (t.length() > maxLen) t = t.substring(0, maxLen);
     textValue = t;
-    scrollToBottom();
+    setCursorPosition(textValue.length());
+    ensureCursorVisible();
   }
 
   public void setTextColor(int c) { useCustomTextColor = true; customTextColor = c; }
   public void clearTextColor() { useCustomTextColor = false; }
   public void setBorderColor(int c) { useCustomBorderColor = true; customBorderColor = c; }
   public void clearBorderColor() { useCustomBorderColor = false; }
-  public void setFocused(boolean f) { focused = f; if (!focused && activeTextField == this) activeTextField = null; }
+  public void setFocused(boolean f) { focused = f; resetCursorBlink(); if (!focused && activeTextField == this) activeTextField = null; }
   public boolean isFocused() { return focused; }
 
   public void draw() {
@@ -64,14 +71,17 @@ public class UITextArea extends UITextInputBase {
     float visibleHeight = max(0, height - textPadding * 2);
     textAlign(LEFT, TOP);
     textSize(fontSize);
-    ArrayList<String> lines = wrappedLines(availableWidth);
+    ArrayList<VisualLine> lines = visualLines(availableWidth);
     float contentHeight = lines.size() * lineHeight;
     float minScroll = min(0, visibleHeight - contentHeight);
     internalScrollY = constrain(internalScrollY, minScroll, 0);
+    clip(x + textPadding, y + textPadding, availableWidth, visibleHeight);
 
     if (textValue.length() == 0) {
       fill(currentTheme.placeholderColor);
       text(placeholder, x + textPadding, y + textPadding, availableWidth, visibleHeight);
+      if (shouldDrawCursor()) drawCursorAt(x + textPadding, y + textPadding + internalScrollY);
+      noClip();
       return;
     }
 
@@ -79,17 +89,50 @@ public class UITextArea extends UITextInputBase {
     for (int i = 0; i < lines.size(); i++) {
       float lineY = y + textPadding + internalScrollY + i * lineHeight;
       if (lineY + lineHeight < y + textPadding || lineY > y + height - textPadding) continue;
-      text(lines.get(i), x + textPadding, lineY);
+      text(lines.get(i).text, x + textPadding, lineY);
     }
+    if (shouldDrawCursor()) {
+      int lineIndex = cursorLineIndex(lines);
+      VisualLine cursorLine = lines.get(lineIndex);
+      int column = constrain(cursorPosition - cursorLine.start, 0, cursorLine.text.length());
+      float cursorX = x + textPadding + textWidth(cursorLine.text.substring(0, column));
+      float cursorY = y + textPadding + internalScrollY + lineIndex * lineHeight;
+      drawCursorAt(cursorX, cursorY);
+    }
+    noClip();
+  }
+
+  public void drawCursorAt(float cursorX, float cursorY) {
+    stroke(useCustomTextColor ? customTextColor : currentTheme.textColor);
+    strokeWeight(1);
+    line(cursorX, cursorY, cursorX, cursorY + fontSize);
   }
 
   public void mousePressed() {
   }
 
-  public void performTapAction() {
+  public void performTapAction() { performTapAction(getScaledMouseX(), getScaledMouseY()); }
+
+  public void performTapAction(float mx, float my) {
     if (!isEnabled) return;
     focused = true;
     activeTextField = this;
+    textSize(fontSize);
+    ArrayList<VisualLine> lines = visualLines(max(0, width - 16));
+    int lineIndex = constrain(floor((my - (y + 8) - internalScrollY) / lineHeight), 0, lines.size() - 1);
+    VisualLine line = lines.get(lineIndex);
+    float localX = constrain(mx - (x + 8), 0, max(0, width - 16));
+    setCursorPosition(line.start + closestCharacterIndex(line.text, localX));
+    ensureCursorVisible();
+  }
+
+  public int closestCharacterIndex(String source, float localX) {
+    for (int i = 0; i < source.length(); i++) {
+      float left = textWidth(source.substring(0, i));
+      float right = textWidth(source.substring(0, i + 1));
+      if (localX < (left + right) / 2) return i;
+    }
+    return source.length();
   }
 
   public void mouseDragged() {
@@ -105,13 +148,29 @@ public class UITextArea extends UITextInputBase {
   public void keyPressed() {
     if (!focused || !isEnabled) return;
     if (keyCode == BACKSPACE) {
-      if (textValue.length() > 0) {
-        textValue = textValue.substring(0, textValue.length() - 1);
+      if (cursorPosition > 0) {
+        textValue = textValue.substring(0, cursorPosition - 1) + textValue.substring(cursorPosition);
+        setCursorPosition(cursorPosition - 1);
         triggerEvent(this, "changed", textValue);
-        scrollToBottom();
+        ensureCursorVisible();
       }
       return;
     }
+    if (keyCode == DELETE) {
+      if (cursorPosition < textValue.length()) {
+        textValue = textValue.substring(0, cursorPosition) + textValue.substring(cursorPosition + 1);
+        resetCursorBlink();
+        triggerEvent(this, "changed", textValue);
+        ensureCursorVisible();
+      }
+      return;
+    }
+    if (keyCode == LEFT) { setCursorPosition(cursorPosition - 1); ensureCursorVisible(); return; }
+    if (keyCode == RIGHT) { setCursorPosition(cursorPosition + 1); ensureCursorVisible(); return; }
+    if (keyCode == UP) { moveCursorVertically(-1); return; }
+    if (keyCode == DOWN) { moveCursorVertically(1); return; }
+    if (keyCode == 36) { moveCursorToVisualLineEdge(false); return; }
+    if (keyCode == 35) { moveCursorToVisualLineEdge(true); return; }
     if (key == TAB) return;
     if (key == ENTER || key == RETURN) {
       appendPrintableChar('\n');
@@ -137,12 +196,13 @@ public class UITextArea extends UITextInputBase {
     if (c == lastChar && (now - lastCharMs) < 40 && c != '\n') return;
     lastChar = c;
     lastCharMs = now;
-    String next = textValue + c;
+    String next = textValue.substring(0, cursorPosition) + c + textValue.substring(cursorPosition);
     if (uppercase) next = next.toUpperCase();
     if (next.length() <= maxLen) {
       textValue = next;
+      setCursorPosition(cursorPosition + 1);
       triggerEvent(this, "changed", textValue);
-      scrollToBottom();
+      ensureCursorVisible();
     }
   }
 
@@ -154,7 +214,7 @@ public class UITextArea extends UITextInputBase {
     float textPadding = 8;
     float availableWidth = max(0, width - textPadding * 2);
     float visibleHeight = max(0, height - textPadding * 2);
-    ArrayList<String> lines = wrappedLines(availableWidth);
+    ArrayList<VisualLine> lines = visualLines(availableWidth);
     float contentHeight = lines.size() * lineHeight;
     return min(0, visibleHeight - contentHeight);
   }
@@ -165,25 +225,74 @@ public class UITextArea extends UITextInputBase {
 
   public ArrayList<String> wrappedLines(float availableWidth) {
     ArrayList<String> result = new ArrayList<String>();
-    String[] rawLines = split(textValue.length() == 0 ? placeholder : textValue, '\n');
-    if (rawLines == null || rawLines.length == 0) {
-      result.add("");
-      return result;
-    }
-    for (int i = 0; i < rawLines.length; i++) {
-      String line = rawLines[i];
-      if (line.length() == 0) {
-        result.add("");
-        continue;
+    for (VisualLine line : visualLinesForText(textValue.length() == 0 ? placeholder : textValue, availableWidth)) result.add(line.text);
+    return result;
+  }
+
+  public ArrayList<VisualLine> visualLines(float availableWidth) { return visualLinesForText(textValue, availableWidth); }
+
+  public ArrayList<VisualLine> visualLinesForText(String source, float availableWidth) {
+    ArrayList<VisualLine> result = new ArrayList<VisualLine>();
+    if (source == null || source.length() == 0) { result.add(new VisualLine("", 0, 0)); return result; }
+    int paragraphStart = 0;
+    while (paragraphStart <= source.length()) {
+      int newline = source.indexOf('\n', paragraphStart);
+      int paragraphEnd = newline < 0 ? source.length() : newline;
+      if (paragraphStart == paragraphEnd) result.add(new VisualLine("", paragraphStart, paragraphStart));
+      int position = paragraphStart;
+      while (position < paragraphEnd) {
+        String remaining = source.substring(position, paragraphEnd);
+        int fit = max(1, charsThatFit(remaining, availableWidth));
+        int end = min(paragraphEnd, position + fit);
+        result.add(new VisualLine(source.substring(position, end), position, end));
+        position = end;
       }
-      while (line.length() > 0) {
-        int fit = charsThatFit(line, availableWidth);
-        if (fit <= 0) fit = 1;
-        result.add(line.substring(0, fit));
-        line = line.substring(fit);
-      }
+      if (newline < 0) break;
+      paragraphStart = newline + 1;
     }
     return result;
+  }
+
+  public int cursorLineIndex(ArrayList<VisualLine> lines) {
+    int result = lines.size() - 1;
+    for (int i = 0; i < lines.size(); i++) {
+      VisualLine line = lines.get(i);
+      if (cursorPosition < line.end || (cursorPosition == line.end &&
+        (i == lines.size() - 1 || lines.get(i + 1).start != cursorPosition))) return i;
+      if (cursorPosition >= line.start) result = i;
+    }
+    return result;
+  }
+
+  public void moveCursorVertically(int direction) {
+    textSize(fontSize);
+    ArrayList<VisualLine> lines = visualLines(max(0, width - 16));
+    int current = cursorLineIndex(lines);
+    VisualLine currentLine = lines.get(current);
+    int column = constrain(cursorPosition - currentLine.start, 0, currentLine.text.length());
+    float desiredX = textWidth(currentLine.text.substring(0, column));
+    int targetIndex = constrain(current + direction, 0, lines.size() - 1);
+    VisualLine target = lines.get(targetIndex);
+    setCursorPosition(target.start + closestCharacterIndex(target.text, desiredX));
+    ensureCursorVisible();
+  }
+
+  public void moveCursorToVisualLineEdge(boolean end) {
+    ArrayList<VisualLine> lines = visualLines(max(0, width - 16));
+    VisualLine line = lines.get(cursorLineIndex(lines));
+    setCursorPosition(end ? line.end : line.start);
+    ensureCursorVisible();
+  }
+
+  public void ensureCursorVisible() {
+    textSize(fontSize);
+    float visibleHeight = max(0, height - 16);
+    ArrayList<VisualLine> lines = visualLines(max(0, width - 16));
+    int lineIndex = cursorLineIndex(lines);
+    float top = lineIndex * lineHeight + internalScrollY;
+    if (top < 0) internalScrollY -= top;
+    else if (top + lineHeight > visibleHeight) internalScrollY -= top + lineHeight - visibleHeight;
+    internalScrollY = constrain(internalScrollY, min(0, visibleHeight - lines.size() * lineHeight), 0);
   }
 
   public int charsThatFit(String source, float availableWidth) {

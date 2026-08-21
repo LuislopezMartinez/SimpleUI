@@ -309,6 +309,16 @@ public static volatile int androidVisibleBottom = 0;
 public static boolean keyboardAvoidanceActive = false;
 public static float scrollBeforeKeyboard = 0;
 public static UITextInputBase keyboardAvoidanceField = null;
+
+public static class NativeCursorEditText extends EditText {
+    public NativeCursorEditText(Context context) { super(context); }
+
+    protected void onSelectionChanged(int start, int end) {
+        super.onSelectionChanged(start, end);
+        if (nativeInputInternalChange || activeTextField == null || !activeTextField.isFocused()) return;
+        activeTextField.setCursorPosition(start);
+    }
+}
 public static boolean uiModalVisible = false;
 public static String uiModalTitle = "";
 public static String uiModalMessage = "";
@@ -939,13 +949,13 @@ public static void performTapAction(float mx, float myAnchored, float myScrolled
         return;
     }
 
-    if (e instanceof UITextField) {
-        ((UITextField)e).performTapAction();
+  if (e instanceof UITextField) {
+    ((UITextField)e).performTapAction(mx, localY);
         return;
     }
 
-    if (e instanceof UITextArea) {
-        ((UITextArea)e).performTapAction();
+  if (e instanceof UITextArea) {
+    ((UITextArea)e).performTapAction(mx, localY);
         return;
     }
 
@@ -1296,7 +1306,7 @@ public static void ensureNativeTextInput() {
                 }
             });
 
-            nativeInputField = new EditText(getActivity());
+            nativeInputField = new NativeCursorEditText(getActivity());
             nativeInputField.setFocusable(true);
             nativeInputField.setFocusableInTouchMode(true);
             nativeInputField.setSingleLine(true);
@@ -1322,7 +1332,9 @@ public static void ensureNativeTextInput() {
                     if (activeTextField == null || !activeTextField.isFocused()) return;
 
                     String next = editable == null ? "" : editable.toString();
+                    int nativeCursor = nativeInputField == null ? next.length() : nativeInputField.getSelectionStart();
                     activeTextField.setText(next);
+                    activeTextField.setCursorPosition(nativeCursor);
                     triggerEvent(activeTextField, "changed", activeTextField.getText());
                 }
             }
@@ -1359,6 +1371,7 @@ public static void syncNativeInputFromActiveTextField() {
     if (!nativeInputReady || nativeInputField == null || activeTextField == null) return;
 
     final String targetText = activeTextField.getText();
+    final int targetCursor = activeTextField.getCursorPosition();
     getActivity().runOnUiThread(new Runnable() {
         public void run() {
             if (nativeInputField == null) return;
@@ -1370,13 +1383,29 @@ public static void syncNativeInputFromActiveTextField() {
                 configureNativeInputForActiveField();
                 String currentText = nativeInputField.getText() == null ? "" : nativeInputField.getText().toString();
                 if (!currentText.equals(targetText)) nativeInputField.setText(targetText);
-                nativeInputField.setSelection(nativeInputField.getText().length());
+                nativeInputField.setSelection(constrain(targetCursor, 0, nativeInputField.getText().length()));
             } finally {
                 nativeInputInternalChange = false;
             }
         }
     }
     );
+}
+
+public static void syncNativeSelectionFromActiveTextField() {
+    if (!nativeInputReady || nativeInputField == null || activeTextField == null) return;
+    final int targetCursor = activeTextField.getCursorPosition();
+    getActivity().runOnUiThread(new Runnable() {
+        public void run() {
+            if (nativeInputField == null) return;
+            nativeInputInternalChange = true;
+            try {
+                nativeInputField.setSelection(constrain(targetCursor, 0, nativeInputField.getText().length()));
+            } finally {
+                nativeInputInternalChange = false;
+            }
+        }
+    });
 }
 
 public static void openKeyboard() {
@@ -1391,7 +1420,7 @@ public static void openKeyboard() {
                     // field that has just received focus.
                     configureNativeInputForActiveField();
                     nativeInputField.setText(activeTextField.getText());
-                    nativeInputField.setSelection(nativeInputField.getText().length());
+                    nativeInputField.setSelection(constrain(activeTextField.getCursorPosition(), 0, nativeInputField.getText().length()));
                 } finally {
                     nativeInputInternalChange = false;
                 }

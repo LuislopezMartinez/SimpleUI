@@ -20,6 +20,7 @@ public class UITextField extends UITextInputBase {
   public int customTextColor = color(0);
   public boolean useCustomBorderColor = false;
   public int customBorderColor = color(0);
+  public int visibleTextStart = 0;
 
   public UITextField(String id, int x, int y, int w, int h, String placeholder, int fontSize) {
     super(id, x, y, w, h);
@@ -37,13 +38,14 @@ public class UITextField extends UITextInputBase {
     if (uppercase) t = t.toUpperCase();
     if (t.length() > maxLen) t = t.substring(0, maxLen);
     textValue = t;
+    setCursorPosition(textValue.length());
   }
 
   public void setTextColor(int c) { useCustomTextColor = true; customTextColor = c; }
   public void clearTextColor() { useCustomTextColor = false; }
   public void setBorderColor(int c) { useCustomBorderColor = true; customBorderColor = c; }
   public void clearBorderColor() { useCustomBorderColor = false; }
-  public void setFocused(boolean f) { focused = f; if (!focused && activeTextField == this) activeTextField = null; }
+  public void setFocused(boolean f) { focused = f; resetCursorBlink(); if (!focused && activeTextField == this) activeTextField = null; }
   public boolean isFocused() { return focused; }
 
   public void draw() {
@@ -64,9 +66,38 @@ public class UITextField extends UITextInputBase {
       text(visiblePlaceholder, x + textPadding, y + height / 2);
     } else {
       fill(useCustomTextColor ? customTextColor : currentTheme.textColor);
-      String visibleText = tailThatFits(textValue, availableWidth);
+      updateVisibleTextStart(availableWidth);
+      String visibleText = visibleText(availableWidth);
       text(visibleText, x + textPadding, y + height / 2);
+      if (shouldDrawCursor()) {
+        int localCursor = constrain(cursorPosition - visibleTextStart, 0, visibleText.length());
+        float cursorX = x + textPadding + textWidth(visibleText.substring(0, localCursor));
+        stroke(useCustomTextColor ? customTextColor : currentTheme.textColor);
+        strokeWeight(1);
+        line(cursorX, y + (height - fontSize) / 2, cursorX, y + (height + fontSize) / 2);
+      }
     }
+    if (textValue.length() == 0 && shouldDrawCursor()) {
+      stroke(useCustomTextColor ? customTextColor : currentTheme.textColor);
+      strokeWeight(1);
+      line(x + textPadding, y + (height - fontSize) / 2, x + textPadding, y + (height + fontSize) / 2);
+    }
+  }
+
+  public void updateVisibleTextStart(float availableWidth) {
+    cursorPosition = constrain(cursorPosition, 0, textValue.length());
+    visibleTextStart = constrain(visibleTextStart, 0, cursorPosition);
+    while (visibleTextStart < cursorPosition &&
+      textWidth(textValue.substring(visibleTextStart, cursorPosition)) > availableWidth) visibleTextStart++;
+    while (visibleTextStart > 0 &&
+      textWidth(textValue.substring(visibleTextStart - 1, cursorPosition)) <= availableWidth) visibleTextStart--;
+  }
+
+  public String visibleText(float availableWidth) {
+    int end = visibleTextStart;
+    while (end < textValue.length() &&
+      textWidth(textValue.substring(visibleTextStart, end + 1)) <= availableWidth) end++;
+    return textValue.substring(visibleTextStart, end);
   }
 
   public String tailThatFits(String source, float availableWidth) {
@@ -86,10 +117,26 @@ public class UITextField extends UITextInputBase {
   public void mousePressed() {
   }
 
-  public void performTapAction() {
+  public void performTapAction() { performTapAction(getScaledMouseX(), getScaledMouseY()); }
+
+  public void performTapAction(float mx, float my) {
     if (!isEnabled) return;
     focused = true;
     activeTextField = this;
+    textSize(fontSize);
+    updateVisibleTextStart(max(0, width - 16));
+    String visible = visibleText(max(0, width - 16));
+    float localX = constrain(mx - (x + 8), 0, max(0, width - 16));
+    setCursorPosition(visibleTextStart + closestCharacterIndex(visible, localX));
+  }
+
+  public int closestCharacterIndex(String source, float localX) {
+    for (int i = 0; i < source.length(); i++) {
+      float left = textWidth(source.substring(0, i));
+      float right = textWidth(source.substring(0, i + 1));
+      if (localX < (left + right) / 2) return i;
+    }
+    return source.length();
   }
 
   public void keyPressed() {
@@ -99,15 +146,25 @@ public class UITextField extends UITextInputBase {
       return;
     }
     if (keyCode == BACKSPACE) {
-      if (textValue.length() > 0) {
-        textValue = textValue.substring(0, textValue.length() - 1);
+      if (cursorPosition > 0) {
+        textValue = textValue.substring(0, cursorPosition - 1) + textValue.substring(cursorPosition);
+        setCursorPosition(cursorPosition - 1);
         triggerEvent(this, "changed", textValue);
       }
       return;
     }
     if (keyCode == DELETE) {
+      if (cursorPosition < textValue.length()) {
+        textValue = textValue.substring(0, cursorPosition) + textValue.substring(cursorPosition + 1);
+        resetCursorBlink();
+        triggerEvent(this, "changed", textValue);
+      }
       return;
     }
+    if (keyCode == LEFT) { setCursorPosition(cursorPosition - 1); return; }
+    if (keyCode == RIGHT) { setCursorPosition(cursorPosition + 1); return; }
+    if (keyCode == 36) { setCursorPosition(0); return; }
+    if (keyCode == 35) { setCursorPosition(textValue.length()); return; }
     // Los caracteres se insertan exclusivamente desde keyTyped(). En Windows,
     // keyPressed() entrega la letra base de una composición (o) y keyTyped()
     // entrega después el carácter final (ó); procesar ambos produciría "oó".
@@ -131,10 +188,11 @@ public class UITextField extends UITextInputBase {
     if (c == lastChar && (now - lastCharMs) < 40) return;
     lastChar = c;
     lastCharMs = now;
-    String next = textValue + c;
+    String next = textValue.substring(0, cursorPosition) + c + textValue.substring(cursorPosition);
     if (uppercase) next = next.toUpperCase();
     if (next.length() <= maxLen) {
       textValue = next;
+      setCursorPosition(cursorPosition + 1);
       triggerEvent(this, "changed", textValue);
     }
   }

@@ -6,17 +6,8 @@
 package simpleui.desktop;
 
 import java.util.*;
-import java.awt.Frame;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
-import processing.awt.PSurfaceAWT;
+import java.lang.reflect.*;
+import java.util.concurrent.*;
 import processing.core.*;
 import processing.event.*;
 import static processing.core.PApplet.*;
@@ -109,17 +100,19 @@ public static final String LIBRARY_LICENSE = "MIT";
 
     private static final class WindowsResizeGuard {
         private static final int SETTLE_DELAY_MS = 180;
+        private static final int FRAME_ICONIFIED = 1;
         private static final String BUFFER_ERROR =
             "Buffers have not been created";
 
         private final PSurface surface;
-        private final PSurfaceAWT.SmoothCanvas canvas;
-        private final JFrame window;
-        private final Timer settleTimer;
+        private final Object canvas;
+        private final Object window;
+        private final ScheduledExecutorService settleExecutor;
         private final Thread.UncaughtExceptionHandler previousExceptionHandler;
         private final Thread.UncaughtExceptionHandler exceptionHandler;
-        private final ComponentAdapter componentListener;
-        private final WindowAdapter windowListener;
+        private final Object componentListener;
+        private final Object windowListener;
+        private ScheduledFuture<?> settleTask;
 
         private volatile boolean recoveryDispatchPending;
         private boolean recoveryPending;
@@ -127,8 +120,8 @@ public static final String LIBRARY_LICENSE = "MIT";
 
         private WindowsResizeGuard(
             PSurface surface,
-            PSurfaceAWT.SmoothCanvas canvas,
-            JFrame window
+            Object canvas,
+            Object window
         ) {
             this.surface = surface;
             this.canvas = canvas;
@@ -136,68 +129,24 @@ public static final String LIBRARY_LICENSE = "MIT";
             previousExceptionHandler =
                 Thread.getDefaultUncaughtExceptionHandler();
 
-            settleTimer = new Timer(
-                SETTLE_DELAY_MS,
-                new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent event) {
-                        finishWindowTransition();
-                    }
-                }
-            );
-            settleTimer.setRepeats(false);
+            settleExecutor = Executors.newSingleThreadScheduledExecutor();
 
-            componentListener = new ComponentAdapter() {
-                @Override
-                public void componentResized(ComponentEvent event) {
-                    beginWindowTransition();
-                }
+            try {
+                ClassLoader loader = SimpleUI.class.getClassLoader();
+                Class<?> componentType = Class.forName("java.awt.event.ComponentListener", false, loader);
+                componentListener = Proxy.newProxyInstance(loader, new Class<?>[]{componentType},
+                    new ComponentInvocationHandler(this));
 
-                @Override
-                public void componentHidden(ComponentEvent event) {
-                    pauseRendering();
-                }
+                Class<?> stateType = Class.forName("java.awt.event.WindowStateListener", false, loader);
+                Class<?> windowType = Class.forName("java.awt.event.WindowListener", false, loader);
+                windowListener = Proxy.newProxyInstance(loader, new Class<?>[]{stateType, windowType},
+                    new WindowInvocationHandler(this));
+            } catch (ReflectiveOperationException failure) {
+                settleExecutor.shutdownNow();
+                throw new IllegalStateException("Cannot initialize the Windows resize guard", failure);
+            }
 
-                @Override
-                public void componentShown(ComponentEvent event) {
-                    scheduleTransitionFinish();
-                }
-            };
-
-            windowListener = new WindowAdapter() {
-                @Override
-                public void windowStateChanged(WindowEvent event) {
-                    if ((event.getNewState() & Frame.ICONIFIED) != 0) {
-                        pauseRendering();
-                    } else {
-                        beginWindowTransition();
-                    }
-                }
-
-                @Override
-                public void windowClosing(WindowEvent event) {
-                    closing = true;
-                    settleTimer.stop();
-                }
-            };
-
-            exceptionHandler = new Thread.UncaughtExceptionHandler() {
-                @Override
-                public void uncaughtException(
-                    Thread thread,
-                    Throwable error
-                ) {
-                    if (
-                        isRecoverableBufferError(thread, error) &&
-                        SimpleUI.windowsResizeGuard ==
-                            WindowsResizeGuard.this
-                    ) {
-                        scheduleRenderRecovery();
-                        return;
-                    }
-                    forwardException(thread, error);
-                }
-            };
+            exceptionHandler = new ResizeExceptionHandler(this);
         }
 
         static WindowsResizeGuard create(PApplet host) {
@@ -207,35 +156,32 @@ public static final String LIBRARY_LICENSE = "MIT";
             }
 
             PSurface surface = host.getSurface();
-            if (!(surface instanceof PSurfaceAWT)) return null;
+            if (surface == null || !"processing.awt.PSurfaceAWT".equals(surface.getClass().getName())) return null;
             Object nativeSurface = surface.getNative();
-            if (!(nativeSurface instanceof PSurfaceAWT.SmoothCanvas)) {
+            if (nativeSurface == null || !"processing.awt.PSurfaceAWT$SmoothCanvas".equals(nativeSurface.getClass().getName())) return null;
+            try {
+                Object frame = nativeSurface.getClass().getMethod("getFrame").invoke(nativeSurface);
+                if (frame == null || !Class.forName("javax.swing.JFrame").isInstance(frame)) return null;
+                return new WindowsResizeGuard(surface, nativeSurface, frame);
+            } catch (ReflectiveOperationException | LinkageError failure) {
                 return null;
             }
-
-            PSurfaceAWT.SmoothCanvas canvas =
-                (PSurfaceAWT.SmoothCanvas)nativeSurface;
-            if (!(canvas.getFrame() instanceof JFrame)) return null;
-            return new WindowsResizeGuard(
-                surface,
-                canvas,
-                (JFrame)canvas.getFrame()
-            );
         }
 
         void install() {
-            canvas.addComponentListener(componentListener);
-            window.addWindowStateListener(windowListener);
-            window.addWindowListener(windowListener);
+            invokeListener(canvas, "addComponentListener", "java.awt.event.ComponentListener", componentListener);
+            invokeListener(window, "addWindowStateListener", "java.awt.event.WindowStateListener", windowListener);
+            invokeListener(window, "addWindowListener", "java.awt.event.WindowListener", windowListener);
             Thread.setDefaultUncaughtExceptionHandler(exceptionHandler);
         }
 
         void uninstall() {
             closing = true;
-            settleTimer.stop();
-            canvas.removeComponentListener(componentListener);
-            window.removeWindowStateListener(windowListener);
-            window.removeWindowListener(windowListener);
+            cancelSettleTask();
+            settleExecutor.shutdownNow();
+            invokeListener(canvas, "removeComponentListener", "java.awt.event.ComponentListener", componentListener);
+            invokeListener(window, "removeWindowStateListener", "java.awt.event.WindowStateListener", windowListener);
+            invokeListener(window, "removeWindowListener", "java.awt.event.WindowListener", windowListener);
             if (
                 Thread.getDefaultUncaughtExceptionHandler() ==
                 exceptionHandler
@@ -259,13 +205,15 @@ public static final String LIBRARY_LICENSE = "MIT";
 
         private void scheduleTransitionFinish() {
             if (closing) return;
-            settleTimer.restart();
+            cancelSettleTask();
+            settleTask = settleExecutor.schedule(new SettleDispatch(this),
+                SETTLE_DELAY_MS, TimeUnit.MILLISECONDS);
         }
 
         private void finishWindowTransition() {
             if (closing) return;
-            if ((window.getExtendedState() & Frame.ICONIFIED) != 0) return;
-            if (!canvas.isDisplayable()) return;
+            if ((intResult(window, "getExtendedState", 0) & FRAME_ICONIFIED) != 0) return;
+            if (!booleanResult(canvas, "isDisplayable", false)) return;
 
             if (recoveryPending || surface.isStopped()) {
                 surface.stopThread();
@@ -280,21 +228,118 @@ public static final String LIBRARY_LICENSE = "MIT";
         private void scheduleRenderRecovery() {
             if (recoveryDispatchPending) return;
             recoveryDispatchPending = true;
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    if (closing) {
-                        recoveryDispatchPending = false;
-                        return;
-                    }
+            dispatchToAwt(new RecoveryDispatch(this));
+        }
 
-                    recoveryPending = true;
-                    // The failing Animation Thread is already terminating.
-                    // Clear its reference and restart only after AWT settles.
-                    surface.stopThread();
-                    scheduleTransitionFinish();
+        private static final class ComponentInvocationHandler implements InvocationHandler {
+            private final WindowsResizeGuard guard;
+            ComponentInvocationHandler(WindowsResizeGuard guard) { this.guard = guard; }
+            public Object invoke(Object proxy, Method method, Object[] args) {
+                String name = method.getName();
+                if ("componentResized".equals(name)) guard.beginWindowTransition();
+                else if ("componentHidden".equals(name)) guard.pauseRendering();
+                else if ("componentShown".equals(name)) guard.scheduleTransitionFinish();
+                return null;
+            }
+        }
+
+        private static final class WindowInvocationHandler implements InvocationHandler {
+            private final WindowsResizeGuard guard;
+            WindowInvocationHandler(WindowsResizeGuard guard) { this.guard = guard; }
+            public Object invoke(Object proxy, Method method, Object[] args) {
+                String name = method.getName();
+                if ("windowStateChanged".equals(name) && args != null && args.length > 0) {
+                    int state = intResult(args[0], "getNewState", 0);
+                    if ((state & FRAME_ICONIFIED) != 0) guard.pauseRendering();
+                    else guard.beginWindowTransition();
+                } else if ("windowClosing".equals(name)) {
+                    guard.closing = true;
+                    guard.cancelSettleTask();
                 }
-            });
+                return null;
+            }
+        }
+
+        private static final class ResizeExceptionHandler implements Thread.UncaughtExceptionHandler {
+            private final WindowsResizeGuard guard;
+            ResizeExceptionHandler(WindowsResizeGuard guard) { this.guard = guard; }
+            public void uncaughtException(Thread thread, Throwable error) {
+                if (guard.isRecoverableBufferError(thread, error) &&
+                    SimpleUI.windowsResizeGuard == guard) {
+                    guard.scheduleRenderRecovery();
+                    return;
+                }
+                guard.forwardException(thread, error);
+            }
+        }
+
+        private static final class SettleDispatch implements Runnable {
+            private final WindowsResizeGuard guard;
+            SettleDispatch(WindowsResizeGuard guard) { this.guard = guard; }
+            public void run() { dispatchToAwt(new FinishDispatch(guard)); }
+        }
+
+        private static final class FinishDispatch implements Runnable {
+            private final WindowsResizeGuard guard;
+            FinishDispatch(WindowsResizeGuard guard) { this.guard = guard; }
+            public void run() { guard.finishWindowTransition(); }
+        }
+
+        private static final class RecoveryDispatch implements Runnable {
+            private final WindowsResizeGuard guard;
+            RecoveryDispatch(WindowsResizeGuard guard) { this.guard = guard; }
+            public void run() {
+                if (guard.closing) {
+                    guard.recoveryDispatchPending = false;
+                    return;
+                }
+                guard.recoveryPending = true;
+                guard.surface.stopThread();
+                guard.scheduleTransitionFinish();
+            }
+        }
+
+        private void cancelSettleTask() {
+            if (settleTask != null) {
+                settleTask.cancel(false);
+                settleTask = null;
+            }
+        }
+
+        private static void dispatchToAwt(Runnable action) {
+            try {
+                Class<?> eventQueue = Class.forName("java.awt.EventQueue");
+                eventQueue.getMethod("invokeLater", Runnable.class).invoke(null, action);
+            } catch (ReflectiveOperationException | LinkageError failure) {
+                action.run();
+            }
+        }
+
+        private static void invokeListener(Object target, String methodName, String typeName, Object listener) {
+            try {
+                Class<?> type = Class.forName(typeName);
+                target.getClass().getMethod(methodName, type).invoke(target, listener);
+            } catch (ReflectiveOperationException | LinkageError failure) {
+                // The guard is optional; unavailable Desktop integration must not affect the sketch.
+            }
+        }
+
+        private static int intResult(Object target, String methodName, int fallback) {
+            try {
+                Object result = target.getClass().getMethod(methodName).invoke(target);
+                return result instanceof Number ? ((Number)result).intValue() : fallback;
+            } catch (ReflectiveOperationException | LinkageError failure) {
+                return fallback;
+            }
+        }
+
+        private static boolean booleanResult(Object target, String methodName, boolean fallback) {
+            try {
+                Object result = target.getClass().getMethod(methodName).invoke(target);
+                return result instanceof Boolean ? ((Boolean)result).booleanValue() : fallback;
+            } catch (ReflectiveOperationException | LinkageError failure) {
+                return fallback;
+            }
         }
 
         private boolean isRecoverableBufferError(
@@ -1029,12 +1074,12 @@ public static void performTapAction(float mx, float myAnchored, float myScrolled
   }
 
   if (e instanceof UITextField) {
-    ((UITextField)e).performTapAction();
+    ((UITextField)e).performTapAction(mx, localY);
     return;
   }
 
   if (e instanceof UITextArea) {
-    ((UITextArea)e).performTapAction();
+    ((UITextArea)e).performTapAction(mx, localY);
     return;
   }
 

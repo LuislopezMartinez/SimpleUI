@@ -1,6 +1,6 @@
 # SimpleUI for Processing Desktop and Android
 
-Current version: **0.5.5**.
+Current version: **0.5.6**.
 
 Designed and developed by **[Luis López Martínez](https://github.com/LuislopezMartinez)**.
 Distributed under the **MIT License**.
@@ -44,6 +44,25 @@ emits `changed` on both platforms.
 
 The independent `simplecore.*` package contains the shared frame-task engine.
 It has no dependency on SimpleUI or Android APIs.
+
+## Text editing and caret
+
+`UITextField` and `UITextArea` display a blinking caret while focused. Click or
+tap the text to place it, then insert or delete characters at that position.
+Desktop keyboard navigation supports Left, Right, Home and End in both
+controls; multiline areas additionally support Up and Down across explicit and
+automatically wrapped lines.
+
+When the caret moves beyond the visible portion of a control, a single-line
+field adjusts its horizontal text window and a multiline area adjusts its
+internal vertical scroll. On Android, the visible SimpleUI caret remains
+synchronized with the selection maintained by the hidden native `EditText`, so
+IME composition, prediction and cursor movement continue to use the operating
+system keyboard bridge.
+
+The common `UITextInputBase` API exposes `getCursorPosition()` and
+`setCursorPosition(index)`. Positions use Java string indices and are clamped
+to the current text length.
 
 ## Install and update
 
@@ -199,6 +218,11 @@ The build compiles the canonical Desktop, Android and SimpleCore Java sources,
 combines everything into `library/SimpleUI.jar`, runs lifecycle, external
 `UIView` hook and public API smoke tests, and performs Android D8 conversion as
 a compatibility check.
+
+On Windows, the build prefers the JDK bundled with Processing (currently JDK
+17) so the generated Java 8 class files remain compatible with the older D8
+version used by Processing for Android. A different compatible toolchain can be
+selected with `SIMPLEUI_JAVA_HOME` or the `-JavaHome` build parameter.
 
 Build dependencies are discovered from the installed Processing applications,
 the Android SDK and the Gradle cache. Continuous integration supplies explicit

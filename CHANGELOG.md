@@ -2,6 +2,35 @@
 
 All notable changes to SimpleUI are documented in this file.
 
+## 0.5.6
+
+- Adds a blinking text caret to focused `UITextField` and `UITextArea`
+  controls on Desktop and Android.
+- Allows placing the caret by clicking or tapping the nearest character.
+- Inserts typed text at the caret and makes Backspace/Delete operate before or
+  after the current position instead of always editing the end of the value.
+- Adds Left, Right, Home and End navigation to single-line and multiline text
+  controls, plus Up and Down navigation across explicit and wrapped lines in
+  `UITextArea`.
+- Keeps the caret visible by horizontally adjusting single-line text and
+  vertically scrolling multiline content when necessary.
+- Preserves source-text indices while wrapping multiline content, allowing
+  caret movement to distinguish explicit newline characters from visual line
+  wrapping.
+- Synchronizes the SimpleUI caret with the hidden native Android `EditText`
+  selection, including text changes made through IME composition and
+  predictive keyboards.
+- Adds public cursor-position accessors to `UITextInputBase` and a Desktop
+  regression test for insertion, deletion, movement and wrapped-line indices.
+- Restores Android D8 compatibility for the combined Desktop/Android JAR by
+  keeping Windows AWT resize integration out of Android-resolved bytecode.
+- Makes the build prefer Processing's bundled JDK 17 toolchain, avoiding class
+  files from newer `javac` releases that older Processing Android/D8 versions
+  cannot desugar reliably.
+- Contains scrolled `UITextArea` text and its caret inside the padded content
+  box. Desktop uses renderer clipping; Android filters partially visible lines
+  geometrically to avoid the unsupported Android2D `noClip()` operation.
+
 ## 0.5.5
 
 - Restores the Android dropdown open/closed arrow glyphs that had been

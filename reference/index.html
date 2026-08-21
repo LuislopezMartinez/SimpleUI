@@ -7,7 +7,7 @@
   <meta name="copyright" content="Copyright (c) 2026 Luis López Martínez">
   <meta name="license" content="MIT">
   <meta name="description" content="Manual completo de SimpleUI para Processing Desktop y Android">
-  <title>SimpleUI 0.5.5 · Manual y referencia</title>
+  <title>SimpleUI 0.5.6 · Manual y referencia</title>
   <style>
     :root {
       --ink: #172033; --muted: #61708a; --line: #dce3ee; --paper: #fff;
@@ -110,7 +110,7 @@
     <aside aria-label="Índice de la documentación">
       <div class="brand">
         <h1>SimpleUI</h1>
-        <p>Processing Desktop + Android · v0.5.5</p>
+        <p>Processing Desktop + Android · v0.5.6</p>
         <input class="search" id="search" type="search" placeholder="Buscar clase o concepto…" aria-label="Buscar en la documentación">
       </div>
       <nav id="nav">
@@ -161,7 +161,7 @@
 
     <main>
       <section class="page active" id="inicio" data-search="presentacion introduccion simpleui processing desktop android biblioteca libreria">
-        <div class="eyebrow">Manual docente · versión 0.5.5</div>
+        <div class="eyebrow">Manual docente · versión 0.5.6</div>
         <h1>SimpleUI para Processing</h1>
         <p class="lead">Una única librería para construir interfaces gráficas en proyectos de Processing Desktop y Processing for Android, acompañada de un calendario y del motor de tareas SimpleCore.</p>
         <div class="callout good"><strong>Autoría.</strong> SimpleUI y SimpleCore han sido diseñadas y desarrolladas por <strong>Luis López Martínez</strong> y se distribuyen bajo licencia MIT.</div>
@@ -458,9 +458,10 @@ SimpleUI.addUIElement(alumnos);</code></pre></div>
         <div class="eyebrow">Entrada de datos</div><h1>UITextField y UITextArea</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge android">Teclado nativo Android</span></div>
         <div class="code-wrap signature"><pre><code>UITextField(id, x, y, w, h, placeholder, fontSize)
 UITextArea(id, x, y, w, h, placeholder, fontSize)</code></pre></div>
-        <p><code>UITextField</code> introduce una sola línea. <code>UITextArea</code> admite varias líneas, ajuste de texto y desplazamiento interno.</p>
+        <p><code>UITextField</code> introduce una sola línea. <code>UITextArea</code> admite varias líneas, ajuste de texto y desplazamiento interno. Desde la versión 0.5.6, ambos controles muestran un cursor de edición parpadeante que puede colocarse mediante clic o toque.</p>
+        <p>El texto se inserta y se elimina en la posición del cursor. En Desktop, las teclas Izquierda, Derecha, Inicio y Fin permiten recorrer ambos controles; el área multilínea también admite Arriba y Abajo entre líneas escritas o ajustadas automáticamente. El contenido se desplaza cuando es necesario para mantener visible el cursor.</p>
         <div class="callout good"><strong>Teclado Android desde 0.5.4.</strong> El editor nativo solicita el teclado con reintentos y usa los insets de la ventana para mantener visible la interfaz. Desde 0.5.5, al cambiar el foco entre <code>UITextField</code> y <code>UITextArea</code>, cada control conserva su propio texto sin copiar el valor del control anterior.</div>
-        <div class="api"><div class="api-row"><code>getText() / setText(texto)</code><p>Lee o escribe el contenido.</p></div><div class="api-row"><code>setMaxLen(n)</code><p>Limita el número de caracteres.</p></div><div class="api-row"><code>setUppercase(boolean)</code><p>Convierte la entrada a mayúsculas.</p></div><div class="api-row"><code>setFocused(boolean) / isFocused()</code><p>Controla el foco.</p></div><div class="api-row"><code>submitAndCloseKeyboard()</code><p>Confirma y cierra el teclado.</p></div><div class="api-row"><code>setTextColor() / setBorderColor()</code><p>Personaliza los colores; los métodos <code>clear…()</code> recuperan el tema.</p></div><div class="api-row"><code>area.scrollToBottom()</code><p>Desplaza el área multilínea hasta el final.</p></div></div>
+        <div class="api"><div class="api-row"><code>getText() / setText(texto)</code><p>Lee o escribe el contenido.</p></div><div class="api-row"><code>getCursorPosition() / setCursorPosition(i)</code><p>Consulta o cambia la posición de edición; el índice se limita automáticamente al contenido.</p></div><div class="api-row"><code>setMaxLen(n)</code><p>Limita el número de caracteres.</p></div><div class="api-row"><code>setUppercase(boolean)</code><p>Convierte la entrada a mayúsculas.</p></div><div class="api-row"><code>setFocused(boolean) / isFocused()</code><p>Controla el foco.</p></div><div class="api-row"><code>submitAndCloseKeyboard()</code><p>Confirma y cierra el teclado.</p></div><div class="api-row"><code>setTextColor() / setBorderColor()</code><p>Personaliza los colores; los métodos <code>clear…()</code> recuperan el tema.</p></div><div class="api-row"><code>area.scrollToBottom()</code><p>Desplaza el área multilínea hasta el final.</p></div></div>
         <p class="event-list"><span class="badge event">Eventos</span> <code>changed</code> durante la edición y <code>submitted</code> al confirmar; ambos entregan el texto.</p>
         <div class="code-wrap"><button class="copy">Copiar</button><pre><code>UITextField nombre = new UITextField("nombre", 30, 40, 300, 44, "Tu nombre", 17);
 nombre.setMaxLen(40);
@@ -690,7 +691,7 @@ void setup() {
         <p><strong>SimpleUI y SimpleCore han sido diseñadas y desarrolladas por Luis López Martínez.</strong> Copyright © 2026 Luis López Martínez.</p>
         <p>La biblioteca se distribuye bajo licencia MIT. Permite usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y vender copias, conservando el aviso de copyright y la licencia.</p>
         <div class="callout warning">El software se proporciona «tal cual», sin garantías. Consulta el archivo <code>LICENSE</code> incluido en la raíz de la biblioteca para leer el texto legal completo.</div>
-        <h2>Datos de esta versión</h2><table><tbody><tr><th>Nombre</th><td>SimpleUI</td></tr><tr><th>Versión</th><td>0.5.5</td></tr><tr><th>Diseño y desarrollo</th><td><a href="https://github.com/LuislopezMartinez">Luis López Martínez</a></td></tr><tr><th>Copyright</th><td>© 2026 Luis López Martínez</td></tr><tr><th>Licencia</th><td>MIT</td></tr><tr><th>Paquetes</th><td><code>simpleui.desktop</code>, <code>simpleui.android</code>, <code>simplecore</code></td></tr><tr><th>Artefacto</th><td><code>library/SimpleUI.jar</code></td></tr><tr><th>Última actualización</th><td>15 de agosto de 2026</td></tr><tr><th>Palabras clave</th><td>GUI, widgets, controles, interfaces, Desktop, Android, Processing</td></tr></tbody></table>
+        <h2>Datos de esta versión</h2><table><tbody><tr><th>Nombre</th><td>SimpleUI</td></tr><tr><th>Versión</th><td>0.5.6</td></tr><tr><th>Diseño y desarrollo</th><td><a href="https://github.com/LuislopezMartinez">Luis López Martínez</a></td></tr><tr><th>Copyright</th><td>© 2026 Luis López Martínez</td></tr><tr><th>Licencia</th><td>MIT</td></tr><tr><th>Paquetes</th><td><code>simpleui.desktop</code>, <code>simpleui.android</code>, <code>simplecore</code></td></tr><tr><th>Artefacto</th><td><code>library/SimpleUI.jar</code></td></tr><tr><th>Última actualización</th><td>21 de agosto de 2026</td></tr><tr><th>Palabras clave</th><td>GUI, widgets, controles, interfaces, Desktop, Android, Processing</td></tr></tbody></table>
         <h2>Compatibilidad comprobada</h2>
         <ul>
           <li><strong>Windows:</strong> compilación y pruebas completas con Processing 4.5.2.</li>
@@ -701,7 +702,7 @@ void setup() {
         <p><a href="https://github.com/LuislopezMartinez/SimpleUI">Código fuente y seguimiento del proyecto</a> · <a href="https://github.com/LuislopezMartinez/SimpleUI/releases/latest/download/SimpleUI.zip">Descargar la última versión</a></p>
       </section>
 
-      <footer>SimpleUI 0.5.5 · Diseñada y desarrollada por Luis López Martínez · Licencia MIT</footer>
+      <footer>SimpleUI 0.5.6 · Diseñada y desarrollada por Luis López Martínez · Licencia MIT</footer>
     </main>
   </div>
   <script>
