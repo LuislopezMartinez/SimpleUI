@@ -1,36 +1,26 @@
 import simplecore.*;
 
 Core taskCore;
-String taskStatus = "Waiting";
+PFont gameFont;
 
 class CounterTask extends Task {
-  protected void initialize() {
-    taskStatus = "Task initialized · id=" + id;
-  }
-
   protected void frame() {
-    taskStatus = "Task frame " + liveFrames;
-    if (liveFrames >= 300) kill();
-  }
-
-  protected void onDestroy() {
-    taskStatus = "Task destroyed";
+    text(gameFont, 22, "Task frame " + liveFrames,
+      CENTER, 200, 350, color(240), 255);
   }
 }
 
 void settings() {
-  size(640, 360);
+  size(560, 700);
 }
 
 void setup() {
   taskCore = Core.start(this);
+  taskCore.setMode(400, 700, ViewportMode.FIT);
+  gameFont = createFont("SansSerif", 22);
   new CounterTask();
 }
 
 void draw() {
   background(28);
-  fill(240);
-  textAlign(CENTER, CENTER);
-  textSize(22);
-  text(taskStatus, width * 0.5, height * 0.5);
 }

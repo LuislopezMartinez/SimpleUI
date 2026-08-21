@@ -1,6 +1,8 @@
 import processing.core.PApplet;
 import processing.event.MouseEvent;
 import simpleui.desktop.*;
+import simplecore.Core;
+import simplecore.Viewport;
 
 public class DesktopEventBridgeSmoke {
     private static final class TestApplet extends PApplet {
@@ -127,6 +129,14 @@ public class DesktopEventBridgeSmoke {
             Math.abs(SimpleUI.viewportOffsetY) > 0.001f) {
             throw new AssertionError("RESPONSIVE mode logical viewport mismatch");
         }
+
+        SimpleUI.setMode(1280, 720, UIScaleMode.FIT);
+        Core core = Core.start(host);
+        if (Math.abs(core.getLogicalWidth() - SimpleUI.getLogicalWidth()) > 0.001f ||
+            Math.abs(Viewport.getOffsetY() - SimpleUI.viewportOffsetY) > 0.001f) {
+            throw new AssertionError("SimpleUI and SimpleCore must share one viewport");
+        }
+        Core.shutdown();
 
         SimpleUI.detach();
         if (SimpleUI.isEventBridgeInstalled()) {

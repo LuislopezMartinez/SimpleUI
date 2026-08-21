@@ -2,12 +2,55 @@ package simplecore;
 
 import processing.core.PApplet;
 import processing.core.PConstants;
+import processing.core.PFont;
 import processing.core.PImage;
 import processing.data.StringDict;
+import java.util.ArrayList;
 
 /** Base class for frame-driven logical or drawable tasks. */
 public class Task {
+    private static final class TextCommand {
+        final PFont font;
+        final int size;
+        final String value;
+        final int align;
+        final float x;
+        final float y;
+        final int color;
+        final float alpha;
+
+        TextCommand(PFont font, int size, String value, int align,
+                    float x, float y, int color, float alpha) {
+            this.font = font;
+            this.size = size;
+            this.value = value;
+            this.align = align;
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            this.alpha = alpha;
+        }
+    }
+
+    public static final int _BACKSPACE = PConstants.BACKSPACE;
+    public static final int _UP = PConstants.UP;
+    public static final int _DOWN = PConstants.DOWN;
+    public static final int _LEFT = PConstants.LEFT;
+    public static final int _RIGHT = PConstants.RIGHT;
+    public static final int _SPACE = ' ';
+    public static final int _ESC = PConstants.ESC;
+    public static final int _ENTER = PConstants.ENTER;
+    public static final int _DELETE = PConstants.DELETE;
+    public static final int _TAB = PConstants.TAB;
+
+    public static final int _A = 'A', _B = 'B', _C = 'C', _D = 'D', _E = 'E';
+    public static final int _F = 'F', _G = 'G', _H = 'H', _I = 'I', _J = 'J';
+    public static final int _K = 'K', _L = 'L', _M = 'M', _N = 'N', _O = 'O';
+    public static final int _P = 'P', _Q = 'Q', _R = 'R', _S = 'S', _T = 'T';
+    public static final int _U = 'U', _V = 'V', _W = 'W', _X = 'X', _Y = 'Y', _Z = 'Z';
+
     private final Core core;
+    private final ArrayList<TextCommand> textCommands = new ArrayList<TextCommand>();
     boolean destroyed;
 
     public int priority;
@@ -19,14 +62,14 @@ public class Task {
     public Task father;
     public int liveFrames;
     public final StringDict properties = new StringDict();
+    public final CoreMouse mouse;
 
     public PImage graph;
     public float x;
     public float y;
     public int z;
-    public float scale = 1.0f;
-    public float scaleX = 1.0f;
-    public float scaleY = 1.0f;
+    private float spriteScaleX = 1.0f;
+    private float spriteScaleY = 1.0f;
     public float angle;
     public float alpha = 255.0f;
     public int tintColor = 0xFFFFFFFF;
@@ -34,6 +77,7 @@ public class Task {
 
     public Task() {
         core = Core.requireInstance();
+        mouse = core.mouse;
         className = getClass().getSimpleName();
         id = core.registerTask(this);
     }
@@ -44,6 +88,11 @@ public class Task {
 
     public final boolean exists() {
         return Core.exists(this);
+    }
+
+    /** Minimal keyboard query inherited by every Task. */
+    public final boolean key(int code) {
+        return core.key(code);
     }
 
     public final Task kill() {
@@ -81,21 +130,41 @@ public class Task {
         return this;
     }
 
+    public Task scale(float value) {
+        if (!Float.isFinite(value)) return this;
+        spriteScaleX = value;
+        spriteScaleY = value;
+        return this;
+    }
+
+    public Task scalex(float value) {
+        if (Float.isFinite(value)) spriteScaleX = value;
+        return this;
+    }
+
+    public Task scaley(float value) {
+        if (Float.isFinite(value)) spriteScaleY = value;
+        return this;
+    }
+
+    /** @deprecated Use scale(value). */
+    @Deprecated
     public Task setScale(float newScale) {
-        scale = newScale;
-        return this;
+        return scale(newScale);
     }
 
+    /** @deprecated Use scalex(x) and scaley(y). */
+    @Deprecated
     public Task setAxisScale(float newScaleX, float newScaleY) {
-        scaleX = newScaleX;
-        scaleY = newScaleY;
+        scalex(newScaleX);
+        scaley(newScaleY);
         return this;
     }
 
+    /** @deprecated Use scale(1). */
+    @Deprecated
     public Task resetAxisScale() {
-        scaleX = 1.0f;
-        scaleY = 1.0f;
-        return this;
+        return scale(1.0f);
     }
 
     public Task setAngle(float newAngle) {
@@ -123,6 +192,19 @@ public class Task {
         return this;
     }
 
+    /** Queues text in logical viewport coordinates for this frame. */
+    public final void text(PFont font, int size, String text, int align,
+                           float x, float y, int color, float alpha) {
+        if (text == null || size <= 0 || !Float.isFinite(x) || !Float.isFinite(y)) return;
+        if (!Float.isFinite(alpha)) return;
+        int safeAlign = align == PConstants.CENTER || align == PConstants.RIGHT
+            ? align : PConstants.LEFT;
+        textCommands.add(new TextCommand(
+            font, size, text, safeAlign, x, y, color,
+            PApplet.constrain(alpha, 0.0f, 255.0f)
+        ));
+    }
+
     public float getDist(Task target) {
         if (target == null) return Float.NaN;
         float deltaX = target.x - x;
@@ -148,24 +230,24 @@ public class Task {
         return this;
     }
 
-    public boolean usesAxisScale() {
-        return Math.abs(scaleX - 1.0f) > 0.0001f || Math.abs(scaleY - 1.0f) > 0.0001f;
-    }
-
     public float getEffectiveScaleX() {
-        return usesAxisScale() ? scaleX : scale;
+        return spriteScaleX;
     }
 
     public float getEffectiveScaleY() {
-        return usesAxisScale() ? scaleY : scale;
+        return spriteScaleY;
     }
 
     public boolean isDrawable() {
-        return exists() && visible && graph != null && alpha > 0.0f;
+        return exists() && visible && alpha > 0.0f && (graph != null || !textCommands.isEmpty());
+    }
+
+    final void beginFrame() {
+        textCommands.clear();
     }
 
     protected void render() {
-        if (!isDrawable()) return;
+        if (!exists() || !visible || graph == null || alpha <= 0.0f) return;
         PApplet parent = core.getParent();
         parent.pushMatrix();
         parent.pushStyle();
@@ -179,6 +261,23 @@ public class Task {
         } finally {
             parent.popStyle();
             parent.popMatrix();
+        }
+    }
+
+    final void renderText() {
+        if (!exists() || !visible || alpha <= 0.0f || textCommands.isEmpty()) return;
+        PApplet parent = core.getParent();
+        parent.pushStyle();
+        try {
+            for (TextCommand command : textCommands) {
+                if (command.font != null) parent.textFont(command.font);
+                parent.textSize(command.size);
+                parent.textAlign(command.align, PConstants.CENTER);
+                parent.fill(command.color, command.alpha * alpha / 255.0f);
+                parent.text(command.value, command.x, command.y);
+            }
+        } finally {
+            parent.popStyle();
         }
     }
 }

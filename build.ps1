@@ -151,12 +151,12 @@ $desktopSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simpleui\des
 $androidSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simpleui\android') -File -Filter '*.java' | ForEach-Object { $_.FullName }
 $commonSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simplecore') -File -Filter '*.java' | ForEach-Object { $_.FullName }
 
-& $javacExe --release 8 -encoding UTF-8 -classpath $processingDesktopCore -d $desktopClasses $desktopSources
-if ($LASTEXITCODE -ne 0) { throw "javac failed with exit code $LASTEXITCODE" }
-& $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi" -d $androidClasses $androidSources
-if ($LASTEXITCODE -ne 0) { throw "Android javac failed with exit code $LASTEXITCODE" }
 & $javacExe --release 8 -encoding UTF-8 -classpath $processingDesktopCore -d $commonClasses $commonSources
 if ($LASTEXITCODE -ne 0) { throw "SimpleCore javac failed with exit code $LASTEXITCODE" }
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$commonClasses" -d $desktopClasses $desktopSources
+if ($LASTEXITCODE -ne 0) { throw "javac failed with exit code $LASTEXITCODE" }
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$commonClasses" -d $androidClasses $androidSources
+if ($LASTEXITCODE -ne 0) { throw "Android javac failed with exit code $LASTEXITCODE" }
 
 if (Test-Path -LiteralPath $output) {
     Remove-Item -LiteralPath $output -Force

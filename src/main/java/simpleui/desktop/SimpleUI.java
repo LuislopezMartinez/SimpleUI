@@ -10,6 +10,8 @@ import java.lang.reflect.*;
 import java.util.concurrent.*;
 import processing.core.*;
 import processing.event.*;
+import simplecore.Viewport;
+import simplecore.ViewportMode;
 import static processing.core.PApplet.*;
 import static processing.core.PConstants.*;
 
@@ -29,6 +31,7 @@ public static final String LIBRARY_LICENSE = "MIT";
         if (host == null) throw new IllegalArgumentException("SimpleUI requires a PApplet host");
         if (app != null && app != host) detach();
         app = host;
+        Viewport.attach(host);
         syncHostState();
         installEventBridge();
         installWindowsResizeGuard();
@@ -617,26 +620,21 @@ public static void setMode(
   designHeight = height;
   scaleMode = mode == null ? UIScaleMode.FIT : mode;
   modeConfigured = true;
+  Viewport.setMode(width, height, ViewportMode.valueOf(scaleMode.name()));
   updateViewport();
 }
 
 public static void updateViewport() {
-  if (!modeConfigured || designWidth <= 0 || designHeight <= 0) return;
-  float fitScale = min(width / designWidth, height / designHeight);
-  float fillScale = max(width / designWidth, height / designHeight);
-  uiScale = max(0.0001f, scaleMode == UIScaleMode.FILL ? fillScale : fitScale);
-
-  if (scaleMode == UIScaleMode.RESPONSIVE) {
-    viewportOffsetX = 0;
-    viewportOffsetY = 0;
-    logicalWidth = width / uiScale;
-    logicalHeight = height / uiScale;
-  } else {
-    logicalWidth = designWidth;
-    logicalHeight = designHeight;
-    viewportOffsetX = (width - designWidth * uiScale) * 0.5f;
-    viewportOffsetY = (height - designHeight * uiScale) * 0.5f;
-  }
+  Viewport.update();
+  modeConfigured = Viewport.isConfigured();
+  designWidth = Viewport.getDesignWidth();
+  designHeight = Viewport.getDesignHeight();
+  logicalWidth = Viewport.getLogicalWidth();
+  logicalHeight = Viewport.getLogicalHeight();
+  uiScale = Viewport.getScaleX();
+  viewportOffsetX = Viewport.getOffsetX();
+  viewportOffsetY = Viewport.getOffsetY();
+  scaleMode = UIScaleMode.valueOf(Viewport.getMode().name());
 }
 
 public static float getLogicalWidth() {
@@ -648,19 +646,19 @@ public static float getLogicalHeight() {
 }
 
 public static float screenToDesignX(float screenX) {
-  return (screenX - viewportOffsetX) / uiScale;
+  return Viewport.screenToDesignX(screenX);
 }
 
 public static float screenToDesignY(float screenY) {
-  return (screenY - viewportOffsetY) / uiScale;
+  return Viewport.screenToDesignY(screenY);
 }
 
 public static float designToScreenX(float designX) {
-  return viewportOffsetX + designX * uiScale;
+  return Viewport.designToScreenX(designX);
 }
 
 public static float designToScreenY(float designY) {
-  return viewportOffsetY + designY * uiScale;
+  return Viewport.designToScreenY(designY);
 }
 
 public static void addUIElement(UIElement element) {

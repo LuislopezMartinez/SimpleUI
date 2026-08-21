@@ -9,7 +9,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
+import java.util.HashSet;
 import processing.core.PApplet;
+import processing.core.PConstants;
+import processing.event.KeyEvent;
+import processing.event.MouseEvent;
 
 /** A single Processing-bound task engine. */
 public final class Core {
@@ -18,6 +22,10 @@ public final class Core {
     public static final int SIGNAL_KILL = -1;
     public static final int SIGNAL_PROTECT = -2;
     public static final int SIGNAL_UNPROTECT = -3;
+
+    public static final int MOUSE_LEFT = PConstants.LEFT;
+    public static final int MOUSE_RIGHT = PConstants.RIGHT;
+    public static final int MOUSE_CENTER = PConstants.CENTER;
 
     private static final Comparator<Task> PRIORITY_ORDER = new Comparator<Task>() {
         public int compare(Task first, Task second) {
@@ -36,17 +44,21 @@ public final class Core {
     private final ArrayList<Task> tasks = new ArrayList<Task>();
     private final ArrayList<Task> pendingTasks = new ArrayList<Task>();
     private final ArrayList<Task> drawableTasks = new ArrayList<Task>();
+    private final HashSet<Integer> pressedKeys = new HashSet<Integer>();
+    public final CoreMouse mouse = new CoreMouse();
     private boolean updating;
     private boolean shuttingDown;
     private boolean automaticRendering = true;
     private int lastTaskId;
-    private float canvasScale = 1.0f;
     private Task caller;
 
     private Core(PApplet parent) {
         this.parent = parent;
+        Viewport.attach(parent);
         parent.registerMethod("pre", this);
         parent.registerMethod("draw", this);
+        parent.registerMethod("keyEvent", this);
+        parent.registerMethod("mouseEvent", this);
         parent.registerMethod("dispose", this);
     }
 
@@ -96,15 +108,68 @@ public final class Core {
     }
 
     public float getTaskCanvasScale() {
-        return canvasScale;
+        return Viewport.getScaleX();
     }
 
+    /** @deprecated Use setMode() so SimpleCore and SimpleUI share one viewport. */
+    @Deprecated
     public void setTaskCanvasScale(float value) {
-        canvasScale = Math.max(0.0001f, value);
+        Viewport.setManualScale(value);
+    }
+
+    public void setMode(float width, float height) {
+        setMode(width, height, ViewportMode.FIT);
+    }
+
+    public void setMode(float width, float height, ViewportMode mode) {
+        Viewport.setMode(width, height, mode);
+    }
+
+    public float getLogicalWidth() {
+        return Viewport.getLogicalWidth();
+    }
+
+    public float getLogicalHeight() {
+        return Viewport.getLogicalHeight();
     }
 
     public Task getCaller() {
         return caller;
+    }
+
+    /** Returns true while the requested key is held down. */
+    public boolean key(int code) {
+        return pressedKeys.contains(code);
+    }
+
+    /** Processing keyboard callback; installed automatically by start(). */
+    public void keyEvent(KeyEvent event) {
+        if (event == null || shuttingDown) return;
+        int code = normalizeKey(event);
+        if (code == 0) return;
+        if (event.getAction() == KeyEvent.PRESS) pressedKeys.add(code);
+        else if (event.getAction() == KeyEvent.RELEASE) pressedKeys.remove(code);
+    }
+
+    /** Processing pointer callback; a touch is exposed as mouse.left on Android. */
+    public void mouseEvent(MouseEvent event) {
+        if (event == null || shuttingDown) return;
+        Viewport.update();
+        mouse.move(event.getX(), event.getY());
+        if (event.getAction() == MouseEvent.PRESS) mouse.press(event.getButton());
+        else if (event.getAction() == MouseEvent.RELEASE) mouse.release(event.getButton());
+    }
+
+    /** Clears keyboard and mouse state. */
+    public void clearInput() {
+        pressedKeys.clear();
+        mouse.clear();
+    }
+
+    private int normalizeKey(KeyEvent event) {
+        char value = event.getKey();
+        if (value == PConstants.CODED) return event.getKeyCode();
+        return Character.toUpperCase(value);
     }
 
     public int getTaskCount() {
@@ -185,6 +250,8 @@ public final class Core {
     /** Processing callback invoked before the sketch draw method. */
     public void pre() {
         if (shuttingDown) return;
+        Viewport.update();
+        if (!parent.focused) clearInput();
         Collections.sort(tasks, PRIORITY_ORDER);
         updating = true;
         try {
@@ -195,6 +262,7 @@ public final class Core {
                     destroyTaskAt(index);
                     continue;
                 }
+                task.beginFrame();
                 if (task.liveFrames == 0) {
                     task.initialize();
                     if (!task.live) {
@@ -231,9 +299,14 @@ public final class Core {
         for (Task task : tasks) if (task.isDrawable()) drawableTasks.add(task);
         Collections.sort(drawableTasks, Z_ORDER);
         parent.pushMatrix();
-        parent.scale(canvasScale);
+        parent.translate(Viewport.getOffsetX(), Viewport.getOffsetY());
+        parent.scale(Viewport.getScaleX(), Viewport.getScaleY());
         try {
-            for (Task task : drawableTasks) if (task.isDrawable()) task.render();
+            for (Task task : drawableTasks) {
+                if (!task.isDrawable()) continue;
+                task.render();
+                task.renderText();
+            }
         } finally {
             parent.popMatrix();
             drawableTasks.clear();
@@ -273,6 +346,8 @@ public final class Core {
         }
         parent.unregisterMethod("pre", this);
         parent.unregisterMethod("draw", this);
+        parent.unregisterMethod("keyEvent", this);
+        parent.unregisterMethod("mouseEvent", this);
         parent.unregisterMethod("dispose", this);
 
         RuntimeException firstFailure = null;
@@ -292,6 +367,7 @@ public final class Core {
         tasks.clear();
         pendingTasks.clear();
         drawableTasks.clear();
+        clearInput();
         caller = null;
         updating = false;
         lastTaskId = 0;

@@ -1,7 +1,12 @@
 import java.util.ArrayList;
 import processing.core.PApplet;
+import processing.core.PConstants;
+import processing.event.KeyEvent;
+import processing.event.MouseEvent;
 import simplecore.Core;
 import simplecore.Task;
+import simplecore.Viewport;
+import simplecore.ViewportMode;
 
 public class SimpleCoreSmoke {
     private static void check(boolean condition, String message) {
@@ -55,6 +60,23 @@ public class SimpleCoreSmoke {
         Core core = Core.start(host);
         check(Core.start(host) == core, "Core.start must return the existing singleton");
         check(Core.getInstance() == core && Core.isRunning(), "Core singleton lookup failed");
+        host.width = 800;
+        host.height = 600;
+        core.setMode(400, 400, ViewportMode.FIT);
+        check(Viewport.getScaleX() == 1.5f && Viewport.getScaleY() == 1.5f,
+            "FIT viewport scale is incorrect");
+        check(Viewport.getOffsetX() == 100.0f && Viewport.getOffsetY() == 0.0f,
+            "FIT viewport offset is incorrect");
+
+        core.keyEvent(new KeyEvent(null, 0, KeyEvent.PRESS, 0, 'a', 65));
+        check(core.key(Task._A), "Lowercase A must be normalized for key(_A)");
+        core.keyEvent(new KeyEvent(null, 0, KeyEvent.PRESS, 0, (char)PConstants.CODED, PConstants.LEFT));
+        check(core.key(Task._LEFT), "Coded arrow must be available through key(_LEFT)");
+        core.mouseEvent(new MouseEvent(null, 0, MouseEvent.PRESS, 0, 0, 0, PConstants.LEFT, 1));
+        check(core.mouse.left, "Left mouse press was not retained");
+        core.keyEvent(new KeyEvent(null, 0, KeyEvent.RELEASE, 0, 'a', 65));
+        core.mouseEvent(new MouseEvent(null, 0, MouseEvent.RELEASE, 0, 0, 0, PConstants.LEFT, 1));
+        check(!core.key(Task._A) && !core.mouse.left, "Released input must be cleared");
 
         boolean rejectedSecondHost = false;
         try { Core.start(new PApplet()); }
@@ -67,6 +89,12 @@ public class SimpleCoreSmoke {
         SpawnerTask spawner = new SpawnerTask(log);
         check(core.getTaskById(low.id) == low, "getTaskById failed");
         check(low.id > 0 && high.id > low.id, "Task identifiers must be positive and unique");
+        check(low.mouse == core.mouse && !low.key(Task._A), "Tasks must share the Core input state");
+        low.scale(2).scalex(-1).scaley(0.5f);
+        check(low.getEffectiveScaleX() == -1.0f && low.getEffectiveScaleY() == 0.5f,
+            "Task scale/scalex/scaley composition is incorrect");
+        low.text(null, 18, "Score", PConstants.LEFT, 20, 30, 0xFFFFFFFF, 255);
+        check(low.isDrawable(), "A Task with queued text must participate in rendering");
 
         core.pre();
         check(log.indexOf("frame:high") < log.indexOf("frame:spawner"), "Priority order is incorrect");

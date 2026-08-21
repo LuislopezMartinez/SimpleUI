@@ -7,7 +7,7 @@
   <meta name="copyright" content="Copyright (c) 2026 Luis López Martínez">
   <meta name="license" content="MIT">
   <meta name="description" content="Manual completo de SimpleUI para Processing Desktop y Android">
-  <title>SimpleUI 0.5.6 · Manual y referencia</title>
+  <title>SimpleUI 0.5.7 · Manual y referencia</title>
   <style>
     :root {
       --ink: #172033; --muted: #61708a; --line: #dce3ee; --paper: #fff;
@@ -110,7 +110,7 @@
     <aside aria-label="Índice de la documentación">
       <div class="brand">
         <h1>SimpleUI</h1>
-        <p>Processing Desktop + Android · v0.5.6</p>
+        <p>Processing Desktop + Android · v0.5.7</p>
         <input class="search" id="search" type="search" placeholder="Buscar clase o concepto…" aria-label="Buscar en la documentación">
       </div>
       <nav id="nav">
@@ -161,7 +161,7 @@
 
     <main>
       <section class="page active" id="inicio" data-search="presentacion introduccion simpleui processing desktop android biblioteca libreria">
-        <div class="eyebrow">Manual docente · versión 0.5.6</div>
+        <div class="eyebrow">Manual docente · versión 0.5.7</div>
         <h1>SimpleUI para Processing</h1>
         <p class="lead">Una única librería para construir interfaces gráficas en proyectos de Processing Desktop y Processing for Android, acompañada de un calendario y del motor de tareas SimpleCore.</p>
         <div class="callout good"><strong>Autoría.</strong> SimpleUI y SimpleCore han sido diseñadas y desarrolladas por <strong>Luis López Martínez</strong> y se distribuyen bajo licencia MIT.</div>
@@ -295,8 +295,8 @@ void draw() {
       </section>
 
       <section class="page" id="resolucion" data-search="resolucion virtual escala setmode fit fill responsive viewport coordenadas resize orientation">
-        <div class="eyebrow">Sistema de coordenadas</div><h1>Resolución virtual y escala</h1><div class="badges"><span class="badge both">Desktop y Android</span><span class="badge advanced">Nuevo en 0.5.0</span></div>
-        <p class="lead">Diseña una sola vez con una resolución lógica —por ejemplo 1280 × 720— y deja que SimpleUI adapte dibujo, controles, modales y entrada a la ventana o pantalla real.</p>
+        <div class="eyebrow">Sistema de coordenadas</div><h1>Resolución virtual y escala</h1><div class="badges"><span class="badge both">Desktop y Android</span></div>
+        <p class="lead">Diseña una sola vez con una resolución lógica y deja que el viewport compartido adapte controles, tareas, texto y entrada a la pantalla real.</p>
         <div class="code-wrap"><button class="copy">Copiar</button><pre><code>SimpleUI.initUI(this, "SansSerif", 18);
 SimpleUI.setMode(1280, 720, UIScaleMode.RESPONSIVE);
 
@@ -306,7 +306,7 @@ void draw() {
 }</code></pre></div>
         <h2>Modos disponibles</h2>
         <div class="table-scroll"><table><thead><tr><th>Modo</th><th>Comportamiento</th><th>Uso recomendado</th></tr></thead><tbody>
-          <tr><td><code>FIT</code></td><td>Conserva la proporción, muestra toda la resolución de diseño y centra el contenido. Puede dejar bandas libres.</td><td>Interfaces de tamaño fijo que nunca deben recortarse.</td></tr>
+          <tr><td><code>FIT</code></td><td>Conserva la proporción, muestra toda la resolución de diseño y centra el contenido. Puede dejar bandas libres.</td><td>Juegos con la misma composición en cualquier pantalla.</td></tr>
           <tr><td><code>FILL</code></td><td>Conserva la proporción y llena toda la superficie. El exceso queda fuera del viewport.</td><td>Fondos o experiencias donde se admite recorte.</td></tr>
           <tr><td><code>RESPONSIVE</code></td><td>Usa la escala de <code>FIT</code>, pero expone el espacio sobrante como coordenadas lógicas adicionales.</td><td>Ventanas redimensionables y distintas relaciones de aspecto en Android.</td></tr>
         </tbody></table></div>
@@ -327,7 +327,7 @@ void draw() {
           <tr><td><code>modeConfigured</code></td><td>Indica si ya se ha definido una resolución virtual.</td></tr>
         </tbody></table></div>
         <div class="callout"><strong>Campos de consulta.</strong> Aunque son públicos, trátalos como valores resueltos de solo lectura. Configura el sistema mediante <code>setMode()</code> y consulta las dimensiones mediante sus getters.</div>
-        <h2>Layout adaptable</h2><p>SimpleUI escala automáticamente cada control, pero no decide cómo repartir el espacio adicional de <code>RESPONSIVE</code>. Cuando cambien <code>getLogicalWidth()</code> o <code>getLogicalHeight()</code>, usa <code>setPosition()</code> y <code>setSize()</code> para ampliar tablas, paneles o áreas gráficas.</p>
+        <h2>Un solo viewport</h2><p><code>SimpleUI.setMode()</code> configura también las tareas de SimpleCore. Si el proyecto solo utiliza SimpleCore, usa <code>taskCore.setMode(ancho, alto, ViewportMode.FIT)</code>. En <code>RESPONSIVE</code>, consulta <code>getLogicalWidth()</code> y <code>getLogicalHeight()</code> para aprovechar el espacio adicional.</p>
         <div class="callout warning"><strong>Coordenadas personalizadas.</strong> Si dibujas o compruebas impactos fuera de los controles SimpleUI, trabaja en coordenadas lógicas o usa las funciones de conversión. No dividas únicamente por <code>uiScale</code>: los modos centrados también tienen desplazamiento de viewport.</div>
       </section>
 
@@ -587,31 +587,45 @@ println(duracion.getTotalMinutes()); // 150</code></pre></div>
       <section class="page" id="core" data-search="simplecore core singleton start shutdown tasks signal priority rendering lifecycle">
         <div class="eyebrow">Motor de tareas</div><h1>Core</h1><div class="badges"><span class="badge core">Desktop y Android · paquete simplecore</span><span class="badge advanced">Singleton estricto</span></div>
         <p class="lead"><code>Core</code> coordina tareas en cada fotograma. Solo puede existir una instancia ligada a un único <code>PApplet</code>.</p>
-        <div class="api"><div class="api-row"><code>Core.start(this)</code><p>Crea la instancia o devuelve la existente si pertenece al mismo sketch.</p></div><div class="api-row"><code>Core.getInstance()</code><p>Obtiene la instancia; lanza excepción si no se inició.</p></div><div class="api-row"><code>Core.isRunning()</code><p>Indica si hay instancia activa.</p></div><div class="api-row"><code>Core.shutdown()</code><p>Desregistra callbacks, destruye tareas y permite un reinicio limpio.</p></div><div class="api-row"><code>getTaskById(id)</code><p>Busca una tarea por su entero positivo.</p></div><div class="api-row"><code>getTaskCount() / getTasksSnapshot()</code><p>Consulta el estado sin exponer la colección interna.</p></div><div class="api-row"><code>signal(task, señal)</code><p>Envía una señal a una tarea.</p></div><div class="api-row"><code>signal(type, señal)</code><p>Envía a todas las tareas de un tipo.</p></div><div class="api-row"><code>signal(className, señal)</code><p>Envía por nombre de clase.</p></div><div class="api-row"><code>letMeAlone()</code><p>Desde una tarea, elimina las demás que no estén protegidas.</p></div></div>
+        <div class="api">
+          <div class="api-row"><code>Core.start(this)</code><p>Inicia SimpleCore y devuelve su instancia.</p></div>
+          <div class="api-row"><code>setMode(ancho, alto, ViewportMode)</code><p>Define la resolución virtual cuando no se utiliza SimpleUI.</p></div>
+          <div class="api-row"><code>getLogicalWidth() / getLogicalHeight()</code><p>Dimensiones lógicas disponibles.</p></div>
+          <div class="api-row"><code>key(_A) / key(_LEFT)</code><p>Indica si una tecla continúa pulsada.</p></div>
+          <div class="api-row"><code>mouse.x / mouse.y</code><p>Posición lógica del ratón o del toque.</p></div>
+          <div class="api-row"><code>mouse.left / right / center</code><p>Estado de los botones; un toque Android equivale a <code>left</code>.</p></div>
+          <div class="api-row"><code>getTaskById(id)</code><p>Busca una tarea por su identificador.</p></div>
+          <div class="api-row"><code>signal(...)</code><p>Envía señales a una tarea o a un grupo.</p></div>
+          <div class="api-row"><code>Core.shutdown()</code><p>Finaliza las tareas y libera SimpleCore.</p></div>
+        </div>
         <h2>Señales</h2><table><thead><tr><th>Constante</th><th>Resultado</th></tr></thead><tbody><tr><td><code>SIGNAL_KILL</code></td><td>Marca para destruir, salvo protección.</td></tr><tr><td><code>SIGNAL_PROTECT</code></td><td>Activa protección contra kill.</td></tr><tr><td><code>SIGNAL_UNPROTECT</code></td><td>Retira la protección.</td></tr></tbody></table>
-        <h2>Representación</h2><p>El renderizado automático está activo. Usa <code>setAutomaticRendering(false)</code> y llama <code>renderTasks()</code> cuando necesites controlar las capas. <code>setTaskCanvasScale()</code> aplica una escala común a todas las tareas gráficas.</p>
+        <h2>Representación</h2><p>SimpleCore dibuja automáticamente las tareas después del <code>draw()</code> del sketch y respeta su valor <code>z</code>. SimpleUI y SimpleCore utilizan siempre el mismo viewport.</p>
         <div class="callout warning"><strong>Importante:</strong> crear una <code>Task</code> antes de <code>Core.start(this)</code> produce una excepción. Intentar iniciar el singleton con otro sketch también produce una excepción.</div>
       </section>
 
-      <section class="page" id="task" data-search="task simplecore initialize frame ondestroy graph sprite position angle alpha tint advance distance father properties">
+      <section class="page" id="task" data-search="task simplecore initialize frame ondestroy graph sprite text scale scalex scaley keyboard mouse position angle alpha tint advance distance">
         <div class="eyebrow">Motor de tareas</div><h1>Task</h1><div class="badges"><span class="badge core">Desktop y Android</span></div>
         <p>Una tarea encapsula estado y comportamiento actualizado por fotogramas. Se registra automáticamente al ejecutar su constructor.</p>
         <h2>Ciclo de vida que se sobrescribe</h2><div class="api"><div class="api-row"><code>protected void initialize()</code><p>Una vez, justo antes del primer <code>frame()</code>.</p></div><div class="api-row"><code>protected void frame()</code><p>Una vez por fotograma mientras la tarea esté viva.</p></div><div class="api-row"><code>protected void onDestroy()</code><p>Una sola vez al destruirse.</p></div><div class="api-row"><code>protected void render()</code><p>Dibujo; la implementación base representa <code>graph</code> con transformaciones.</p></div></div>
         <div class="code-wrap"><button class="copy">Copiar</button><pre><code>import simplecore.*;
 
 class Pelota extends Task {
+  PFont fuente;
+
   Pelota(PImage imagen) {
     setGraph(imagen).setPosition(80, 120).setZ(10);
   }
 
   protected void initialize() {
-    priority = 5;
+    fuente = createFont("SansSerif", 18);
+    scale(1.25);
   }
 
   protected void frame() {
-    advance(0, 2);        // 0° = derecha
+    if (key(_LEFT) || key(_A)) x -= 2;
+    if (key(_RIGHT) || key(_D)) x += 2;
     setAngle(angle + 1);
-    if (x > width + 50) kill();
+    text(fuente, 18, "Posición: " + int(x), LEFT, 20, 30, color(255), 255);
   }
 
   protected void onDestroy() {
@@ -620,28 +634,31 @@ class Pelota extends Task {
 }
 
 void setup() {
-  size(640, 360);
-  Core.start(this);
+  size(640, 720);
+  Core core = Core.start(this);
+  core.setMode(400, 700, ViewportMode.FIT);
   new Pelota(loadImage("pelota.png"));
 }</code></pre></div>
-        <h2>Estado y API</h2><div class="api"><div class="api-row"><code>id, type, className, father, liveFrames</code><p>Identidad, clasificación, relación y edad.</p></div><div class="api-row"><code>priority</code><p>Las prioridades mayores actualizan primero.</p></div><div class="api-row"><code>properties</code><p><code>StringDict</code> para datos adicionales.</p></div><div class="api-row"><code>kill() / setKillProtection()</code><p>Controlan la vida y protección.</p></div><div class="api-row"><code>setGraph() / clearGraph()</code><p>Asigna imagen de representación.</p></div><div class="api-row"><code>setPosition(), setZ(), setScale(), setAxisScale()</code><p>Transformaciones encadenables.</p></div><div class="api-row"><code>setAngle(), setAlpha(), setTint(), setVisible()</code><p>Apariencia encadenable.</p></div><div class="api-row"><code>getDist(task) / getAngle(task)</code><p>Relación espacial con otra tarea.</p></div><div class="api-row"><code>advance(ángulo, distancia)</code><p>Desplaza usando grados.</p></div><div class="api-row"><code>exists() / isDrawable()</code><p>Consulta estado.</p></div></div>
+        <h2>Estado y API</h2><div class="api"><div class="api-row"><code>id, type, className, father, liveFrames</code><p>Identidad, clasificación, relación y edad.</p></div><div class="api-row"><code>priority / z</code><p>Orden de actualización y de dibujo.</p></div><div class="api-row"><code>kill() / setKillProtection()</code><p>Controlan la vida de la tarea.</p></div><div class="api-row"><code>setGraph() / clearGraph()</code><p>Asigna o retira el sprite.</p></div><div class="api-row"><code>setPosition(x, y)</code><p>Coloca la tarea en coordenadas lógicas.</p></div><div class="api-row"><code>scale(v) / scalex(v) / scaley(v)</code><p>Cambian el tamaño local del sprite. Un valor negativo refleja la imagen.</p></div><div class="api-row"><code>text(fuente, tamaño, texto, alineación, x, y, color, alpha)</code><p>Dibuja texto en coordenadas lógicas durante el fotograma.</p></div><div class="api-row"><code>setAngle(), setAlpha(), setTint(), setVisible()</code><p>Controlan la apariencia.</p></div><div class="api-row"><code>getDist(task) / getAngle(task)</code><p>Calculan distancia y dirección.</p></div><div class="api-row"><code>advance(ángulo, distancia)</code><p>Desplaza la tarea usando grados.</p></div></div>
+        <div class="callout"><strong>Proyectos anteriores.</strong> <code>setScale()</code> y <code>setAxisScale()</code> continúan funcionando; para código nuevo usa <code>scale()</code>, <code>scalex()</code> y <code>scaley()</code>.</div>
       </section>
 
       <section class="page" id="ejemplos" data-search="ejemplos curso alumnos desktop android controles login calendario simplecore videojuego animacion particulas hover touch">
-        <div class="eyebrow">Itinerario para el aula</div><h1>60 sketches: 26 parejas numeradas y 8 demostraciones</h1>
-        <p class="lead">Los 52 ejercicios numerados forman 26 parejas Desktop/Android. Los nombres y la estructura se mantienen para que el alumno pueda comparar ambas plataformas línea por línea.</p>
+        <div class="eyebrow">Itinerario para el aula</div><h1>64 sketches: 28 parejas numeradas y 8 demostraciones</h1>
+        <p class="lead">Los 56 ejercicios numerados forman 28 parejas Desktop/Android. Los nombres y la estructura se mantienen para que el alumno pueda comparar ambas plataformas línea por línea.</p>
         <div class="cards">
           <div class="card"><h3>01 a 09</h3><p>Botones, imagen, etiqueta, indicador, checkbox, slider, progreso, desplegable y pestañas.</p></div>
           <div class="card"><h3>10 a 18</h3><p>Lista, tabla, entradas de texto y número, panel, chat, medidor RSSI y calendario.</p></div>
           <div class="card"><h3>19 a 21</h3><p>Miniaplicaciones de login, confirmación modal y navegación mediante vistas.</p></div>
-          <div class="card"><h3>22 a 25</h3><p>SimpleCore: ciclo de vida, minijuego, partículas y reacción al ratón o al dedo.</p></div>
+          <div class="card"><h3>22 a 25</h3><p>SimpleCore: ciclo de vida, viewport, texto, sprites y entrada de juego.</p></div>
           <div class="card"><h3>26</h3><p><code>UISwitch</code>: valor booleano compacto, estado inicial y evento <code>changed</code>.</p></div>
+          <div class="card"><h3>27 y 28</h3><p>Ejemplos mínimos dedicados a <code>key()</code> y <code>Task.text()</code>.</p></div>
         </div>
         <h2>Convención de nombres</h2>
         <p>Por ejemplo, <code>Desktop06Slider</code> y <code>Android06Slider</code> forman una pareja. Cada carpeta contiene un sketch independiente cuyo archivo principal tiene el mismo nombre que la carpeta.</p>
         <h2>Principios didácticos</h2>
         <ul><li>Variables con nombres que explican su función.</li><li>Un único concepto nuevo por ejemplo de control.</li><li>Sin recursos externos: iconos y sprites se generan por código.</li><li>Sin callbacks manuales de ratón o teclado; se utiliza el puente automático de SimpleUI.</li></ul>
-        <div class="callout good"><strong>Orden sugerido:</strong> 01, 05, 06 y 26 para introducir eventos y estados; 10, 12 y 18 para trabajar datos; 19 a 21 para construir aplicaciones; 22 a 25 para introducir tareas y animación.</div>
+        <div class="callout good"><strong>Orden sugerido:</strong> 01, 05, 06 y 26 para introducir eventos y estados; 10, 12 y 18 para trabajar datos; 19 a 21 para construir aplicaciones; 22 a 25 para introducir tareas y animación; 27 y 28 para practicar teclado y texto.</div>
         <div class="callout"><strong>Demostraciones adicionales:</strong> la distribución incluye también las parejas <code>Basic</code>, <code>Calendar</code>, <code>SimpleCore</code> y <code>UnifiedFeatures</code>, con versiones Desktop y Android.</div>
         <div class="callout warning"><strong>Login didáctico:</strong> el campo de clave no está enmascarado. El ejemplo enseña composición y validación, no autenticación segura.</div>
       </section>
@@ -664,7 +681,7 @@ void setup() {
           <tr><td><code>UIScrollState</code>, <code>UIGestureState</code>, <code>UIGestureAxis</code>, <code>UIGestureTarget</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Soporte interno de interacción.</td></tr>
           <tr><td><code>UIDateComparator</code>, <code>UIDateTimeComparator</code>, <code>UICalendarEventDateComparator</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Ordenación temporal.</td></tr>
           <tr><td><code>UIRect</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Rectángulo auxiliar común.</td></tr>
-          <tr><td><code>Core</code>, <code>Task</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Motor común <code>simplecore</code>.</td></tr>
+          <tr><td><code>Core</code>, <code>Task</code>, <code>Viewport</code>, <code>ViewportMode</code></td><td class="yes">✓</td><td class="yes">✓</td><td>Motor de juego y resolución virtual compartida.</td></tr>
         </tbody></table></div>
         <h2>Tipos de soporte</h2><p><code>UIScrollState</code> mantiene desplazamiento y objetivo; <code>UIGestureState</code> registra el gesto capturado; <code>UIGestureAxis</code> clasifica su eje; <code>UIGestureTarget</code> representa el destino; <code>UITextInputBase</code> normaliza la interfaz de inputs. Son públicos por compatibilidad, pero no es necesario instanciarlos para el uso normal.</p>
       </section>
@@ -691,7 +708,7 @@ void setup() {
         <p><strong>SimpleUI y SimpleCore han sido diseñadas y desarrolladas por Luis López Martínez.</strong> Copyright © 2026 Luis López Martínez.</p>
         <p>La biblioteca se distribuye bajo licencia MIT. Permite usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y vender copias, conservando el aviso de copyright y la licencia.</p>
         <div class="callout warning">El software se proporciona «tal cual», sin garantías. Consulta el archivo <code>LICENSE</code> incluido en la raíz de la biblioteca para leer el texto legal completo.</div>
-        <h2>Datos de esta versión</h2><table><tbody><tr><th>Nombre</th><td>SimpleUI</td></tr><tr><th>Versión</th><td>0.5.6</td></tr><tr><th>Diseño y desarrollo</th><td><a href="https://github.com/LuislopezMartinez">Luis López Martínez</a></td></tr><tr><th>Copyright</th><td>© 2026 Luis López Martínez</td></tr><tr><th>Licencia</th><td>MIT</td></tr><tr><th>Paquetes</th><td><code>simpleui.desktop</code>, <code>simpleui.android</code>, <code>simplecore</code></td></tr><tr><th>Artefacto</th><td><code>library/SimpleUI.jar</code></td></tr><tr><th>Última actualización</th><td>21 de agosto de 2026</td></tr><tr><th>Palabras clave</th><td>GUI, widgets, controles, interfaces, Desktop, Android, Processing</td></tr></tbody></table>
+        <h2>Datos de esta versión</h2><table><tbody><tr><th>Nombre</th><td>SimpleUI</td></tr><tr><th>Versión</th><td>0.5.7</td></tr><tr><th>Diseño y desarrollo</th><td><a href="https://github.com/LuislopezMartinez">Luis López Martínez</a></td></tr><tr><th>Copyright</th><td>© 2026 Luis López Martínez</td></tr><tr><th>Licencia</th><td>MIT</td></tr><tr><th>Paquetes</th><td><code>simpleui.desktop</code>, <code>simpleui.android</code>, <code>simplecore</code></td></tr><tr><th>Artefacto</th><td><code>library/SimpleUI.jar</code></td></tr><tr><th>Última actualización</th><td>21 de agosto de 2026</td></tr><tr><th>Palabras clave</th><td>GUI, widgets, controles, interfaces, Desktop, Android, Processing</td></tr></tbody></table>
         <h2>Compatibilidad comprobada</h2>
         <ul>
           <li><strong>Windows:</strong> compilación y pruebas completas con Processing 4.5.2.</li>
@@ -702,7 +719,7 @@ void setup() {
         <p><a href="https://github.com/LuislopezMartinez/SimpleUI">Código fuente y seguimiento del proyecto</a> · <a href="https://github.com/LuislopezMartinez/SimpleUI/releases/latest/download/SimpleUI.zip">Descargar la última versión</a></p>
       </section>
 
-      <footer>SimpleUI 0.5.6 · Diseñada y desarrollada por Luis López Martínez · Licencia MIT</footer>
+      <footer>SimpleUI 0.5.7 · Diseñada y desarrollada por Luis López Martínez · Licencia MIT</footer>
     </main>
   </div>
   <script>

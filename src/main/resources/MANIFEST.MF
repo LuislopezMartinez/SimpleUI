@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
 Implementation-Title: SimpleUI
-Implementation-Version: 0.5.6
+Implementation-Version: 0.5.7
 Implementation-Vendor: Luis lopez martinez
 Built-By: Luis lopez martinez
 Bundle-License: MIT
