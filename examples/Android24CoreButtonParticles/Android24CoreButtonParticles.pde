@@ -13,7 +13,6 @@ void settings() {
 void setup() {
   orientation(PORTRAIT);
   taskCore = Core.start(this);
-  taskCore.setTaskCanvasScale(width / 400.0);
   particleImage = createCircleImage(16, color(255));
 
   SimpleUI.initUI(this, "SansSerif", 18);

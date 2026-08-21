@@ -2,6 +2,7 @@ import simplecore.*;
 
 Core taskCore;
 PImage ballImage;
+PFont gameFont;
 
 void settings() {
   fullScreen();
@@ -10,22 +11,23 @@ void settings() {
 void setup() {
   orientation(PORTRAIT);
   taskCore = Core.start(this);
-  taskCore.setTaskCanvasScale(width / 400.0);
+  taskCore.setMode(400, 700, ViewportMode.FIT);
   ballImage = createCircleImage(34, color(255, 190, 55));
+  gameFont = createFont("SansSerif", 18);
+  new GameText();
   new BouncingBall(110, 180, 2.4, 2.0);
   new BouncingBall(290, 360, -2.0, 2.7);
 }
 
 void draw() {
   background(25, 31, 46);
-  float scale = width / 400.0;
-  pushMatrix();
-  scale(scale);
-  fill(230);
-  textAlign(CENTER, TOP);
-  textSize(18);
-  text("Mini juego: tareas que rebotan", 200, 24);
-  popMatrix();
+}
+
+class GameText extends Task {
+  protected void frame() {
+    text(gameFont, 18, "Toca para acelerar",
+      CENTER, 200, 35, color(230), 255);
+  }
 }
 
 class BouncingBall extends Task {
@@ -41,13 +43,13 @@ class BouncingBall extends Task {
   }
 
   protected void frame() {
-    float designHeight = height / (width / 400.0);
-    x += speedX;
-    y += speedY;
+    float boost = mouse.left ? 2.0 : 1.0;
+    x += speedX * boost;
+    y += speedY * boost;
     if (x < radius || x > 400 - radius) speedX *= -1;
-    if (y < 75 + radius || y > designHeight - radius) speedY *= -1;
+    if (y < 75 + radius || y > 700 - radius) speedY *= -1;
     x = constrain(x, radius, 400 - radius);
-    y = constrain(y, 75 + radius, designHeight - radius);
+    y = constrain(y, 75 + radius, 700 - radius);
   }
 }
 

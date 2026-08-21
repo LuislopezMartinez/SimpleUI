@@ -2,30 +2,37 @@ import simplecore.*;
 
 Core taskCore;
 PImage ballImage;
+PFont gameFont;
 
 void settings() {
-  size(640, 400);
+  size(560, 700);
 }
 
 void setup() {
   taskCore = Core.start(this);
-  ballImage = createCircleImage(40, color(255, 190, 55));
-  new BouncingBall(180, 120, 3.2, 2.4);
-  new BouncingBall(420, 260, -2.5, 3.0);
+  taskCore.setMode(400, 700, ViewportMode.FIT);
+  ballImage = createCircleImage(34, color(255, 190, 55));
+  gameFont = createFont("SansSerif", 18);
+  new GameText();
+  new BouncingBall(110, 180, 2.4, 2.0);
+  new BouncingBall(290, 360, -2.0, 2.7);
 }
 
 void draw() {
   background(25, 31, 46);
-  fill(230);
-  textAlign(CENTER, TOP);
-  textSize(18);
-  text("Mini juego: tareas que rebotan", width / 2, 20);
+}
+
+class GameText extends Task {
+  protected void frame() {
+    text(gameFont, 18, "Flechas o WASD · clic para acelerar",
+      CENTER, 200, 35, color(230), 255);
+  }
 }
 
 class BouncingBall extends Task {
   float speedX;
   float speedY;
-  float radius = 20;
+  float radius = 17;
 
   BouncingBall(float startX, float startY, float vx, float vy) {
     setGraph(ballImage);
@@ -35,12 +42,17 @@ class BouncingBall extends Task {
   }
 
   protected void frame() {
-    x += speedX;
-    y += speedY;
-    if (x < radius || x > width - radius) speedX *= -1;
-    if (y < 70 + radius || y > height - radius) speedY *= -1;
-    x = constrain(x, radius, width - radius);
-    y = constrain(y, 70 + radius, height - radius);
+    if (key(_LEFT) || key(_A)) x -= 3;
+    if (key(_RIGHT) || key(_D)) x += 3;
+    if (key(_UP) || key(_W)) y -= 3;
+    if (key(_DOWN) || key(_S)) y += 3;
+    float boost = mouse.left ? 2.0 : 1.0;
+    x += speedX * boost;
+    y += speedY * boost;
+    if (x < radius || x > 400 - radius) speedX *= -1;
+    if (y < 70 + radius || y > 700 - radius) speedY *= -1;
+    x = constrain(x, radius, 400 - radius);
+    y = constrain(y, 70 + radius, 700 - radius);
   }
 }
 

@@ -2,6 +2,20 @@
 
 All notable changes to SimpleUI are documented in this file.
 
+## 0.5.7
+
+- Adds automatic SimpleCore keyboard and pointer state with the classroom-friendly
+  `key(_LEFT)`, `key(_A)` and `mouse.left/right/center` API inherited by every
+  `Task`, shared across Desktop and Android.
+- Unifies SimpleUI and SimpleCore under one FIT, FILL or RESPONSIVE virtual
+  viewport, including scale, offsets, logical dimensions and coordinate conversion.
+- Adds the classroom-oriented `scale()`, `scalex()` and `scaley()` Task methods.
+  The older `setScale()` and `setAxisScale()` methods remain deprecated for
+  temporary source compatibility.
+- Adds `Task.text()` for viewport-scaled text rendered in Task z-order on
+  Desktop and Android.
+- Adds focused Desktop/Android teaching examples for `key()` and `Task.text()`.
+
 ## 0.5.6
 
 - Adds a blinking text caret to focused `UITextField` and `UITextArea`

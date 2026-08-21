@@ -1,6 +1,6 @@
 # SimpleUI for Processing Desktop and Android
 
-Current version: **0.5.6**.
+Current version: **0.5.7**.
 
 Designed and developed by **[Luis López Martínez](https://github.com/LuislopezMartinez)**.
 Distributed under the **MIT License**.
@@ -99,8 +99,8 @@ void setup() {
 ## Virtual resolution
 
 `setMode(width, height)` defines the logical resolution used to design the
-interface. SimpleUI scales drawing, controls, modals and pointer/touch input
-as one viewport. The two-argument overload uses `UIScaleMode.FIT`.
+application. SimpleUI controls and SimpleCore tasks share this viewport. The
+two-argument overload uses `UIScaleMode.FIT`.
 
 ```java
 SimpleUI.setMode(1280, 720, UIScaleMode.RESPONSIVE);
@@ -115,8 +115,8 @@ The available modes are:
   `getLogicalWidth()` and `getLogicalHeight()` so the application can relayout
   expandable controls.
 
-Use `screenToDesignX/Y()` and `designToScreenX/Y()` when custom sketch
-graphics need to share coordinates with SimpleUI.
+Use `FIT` when a game must keep the same composition on every screen. Use
+`RESPONSIVE` when the layout should take advantage of extra width or height.
 
 `UISwitch` is available on both platforms for compact boolean choices and
 emits `changed` with a `boolean`. `UITable` displays a proportional vertical
@@ -164,14 +164,49 @@ Core taskCore;
 
 void setup() {
   taskCore = Core.start(this);
+  taskCore.setMode(400, 700, ViewportMode.FIT);
   new MyTask();
 }
 
 class MyTask extends Task {
-  protected void initialize() {}
-  protected void frame() {}
+  PFont font;
+
+  protected void initialize() {
+    font = createFont("SansSerif", 24);
+    scale(1.5);
+  }
+
+  protected void frame() {
+    if (key(_LEFT) || key(_A)) x -= 3;
+    if (key(_RIGHT) || key(_D)) x += 3;
+    text(font, 24, "Score: 100", LEFT, 20, 35, color(255), 255);
+  }
   protected void onDestroy() {}
 }
+```
+
+Every `Task` can use `key(_A)` through `key(_Z)`, arrows and common control
+keys. `mouse.x` and `mouse.y` are logical viewport coordinates;
+`mouse.left`, `mouse.right` and `mouse.center` report held buttons.
+
+When SimpleUI is present, its `SimpleUI.setMode(...)` call also configures
+SimpleCore. A game using only SimpleCore calls `taskCore.setMode(...)`.
+
+Sprite size is intentionally concise inside a `Task`:
+
+```java
+scale(2);       // both axes
+scalex(-1);     // horizontal size, negative values mirror the sprite
+scaley(0.75);   // vertical size
+```
+
+`setScale()` and `setAxisScale()` remain temporarily available for source
+compatibility. New code should use the shorter methods above.
+
+Text is drawn in logical coordinates and participates in the Task render order:
+
+```java
+text(font, 24, "Score: 100", LEFT, 20, 35, color(255), 255);
 ```
 
 `Core` is a strict singleton. Repeating `Core.start(this)` returns the existing
@@ -192,11 +227,10 @@ or `public`, because they now extend a class from a Java package. See the
 
 ## Teaching examples
 
-The `examples` directory includes a numbered course of 26 Desktop/Android
+The `examples` directory includes a numbered course of 28 Desktop/Android
 pairs: one sketch for every visual control (including `UISwitch`), practical
-login, modal and view projects, and four SimpleCore exercises covering
-lifecycle, animated game entities, button-created particles and pointer/touch
-interaction.
+login, modal and view projects, and six SimpleCore exercises covering
+lifecycle, game entities, particles, pointer input, keyboard and text.
 
 Open [`examples/README.md`](examples/README.md) for the complete index and the
 recommended classroom order. Every numbered folder is an independent

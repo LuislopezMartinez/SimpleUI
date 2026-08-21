@@ -9,9 +9,9 @@ Los sketches no necesitan declarar `mousePressed()`, `mouseDragged()`,
 `mouseReleased()`, `keyPressed()` ni `keyTyped()`: SimpleUI registra y distribuye
 esos eventos automaticamente.
 
-Todos los ejemplos definen una resolucion virtual con `SimpleUI.setMode()`.
-Las variantes Android usan `UIScaleMode.RESPONSIVE` para aprovechar diferentes
-relaciones de aspecto.
+Todos los ejemplos trabajan con una resolucion virtual. SimpleUI y SimpleCore
+comparten automaticamente esa escala. `FIT` conserva la misma composicion en
+cualquier pantalla y `RESPONSIVE` aprovecha el espacio adicional para interfaces.
 
 ## Controles, de menor a mayor complejidad
 
@@ -53,9 +53,11 @@ no debe usarse como sistema de autenticacion real.
 | Numero | Desktop | Android | Aprendizaje |
 |---:|---|---|---|
 | 22 | `Desktop22CoreTaskLifecycle` | `Android22CoreTaskLifecycle` | Ciclo de vida de una `Task` |
-| 23 | `Desktop23CoreBouncingGame` | `Android23CoreBouncingGame` | Entidades de un minijuego |
-| 24 | `Desktop24CoreButtonParticles` | `Android24CoreButtonParticles` | SimpleUI y SimpleCore juntos |
-| 25 | `Desktop25CoreHoverGraphic` | `Android25CoreTouchGraphic` | Reaccion al raton o al dedo |
+| 23 | `Desktop23CoreBouncingGame` | `Android23CoreBouncingGame` | Resolucion virtual, teclado, toque y `text()` |
+| 24 | `Desktop24CoreButtonParticles` | `Android24CoreButtonParticles` | Viewport compartido entre SimpleUI y SimpleCore |
+| 25 | `Desktop25CoreHoverGraphic` | `Android25CoreTouchGraphic` | Raton logico y animacion con `scale()` |
+| 27 | `Desktop27CoreKeyboard` | `Android27CoreKeyboard` | Teclado, `key()` y pulsaciones simultaneas |
+| 28 | `Desktop28CoreText` | `Android28CoreText` | Texto, alineacion, color y alpha |
 
 ## Orden recomendado en clase
 
@@ -63,11 +65,12 @@ no debe usarse como sistema de autenticacion real.
 2. Continuar con 10, 12 y 18 para trabajar con datos y entrada del usuario.
 3. Construir las miniaplicaciones 19, 20 y 21.
 4. Introducir SimpleCore con 22 y convertir el concepto en movimiento con 23.
-5. Terminar combinando las dos partes de la libreria en 24 y 25.
+5. Practicar `key()` y `text()` por separado con 27 y 28.
+6. Terminar combinando las dos partes de la libreria en 24 y 25.
 
 ## Demostraciones adicionales
 
-Ademas de los 52 sketches numerados, la distribucion contiene ocho
+Ademas de los 56 sketches numerados, la distribucion contiene ocho
 demostraciones generales:
 
 | Desktop | Android | Contenido |

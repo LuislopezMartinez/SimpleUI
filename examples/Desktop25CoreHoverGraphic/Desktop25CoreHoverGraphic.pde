@@ -3,35 +3,39 @@ import simplecore.*;
 Core taskCore;
 InteractiveDiamond diamond;
 PImage diamondImage;
+PFont gameFont;
 
 void settings() {
-  size(560, 380);
+  size(560, 700);
 }
 
 void setup() {
   taskCore = Core.start(this);
+  taskCore.setMode(400, 700, ViewportMode.FIT);
   diamondImage = createDiamondImage(90, color(255, 205, 55));
-  diamond = new InteractiveDiamond(width / 2, height / 2);
+  gameFont = createFont("SansSerif", 18);
+  diamond = new InteractiveDiamond(200, 350);
 }
 
 void draw() {
   background(25, 31, 46);
-  fill(235);
-  textAlign(CENTER, TOP);
-  textSize(18);
-  text("Pasa el raton sobre el grafico", width / 2, 28);
 }
 
 class InteractiveDiamond extends Task {
+  float currentScale = 1;
+
   InteractiveDiamond(float startX, float startY) {
     setGraph(diamondImage);
     setPosition(startX, startY);
   }
 
   protected void frame() {
-    boolean pointerIsNear = dist(mouseX, mouseY, x, y) < 65;
+    boolean pointerIsNear = dist(mouse.x, mouse.y, x, y) < 65;
+    text(gameFont, 18, "Pasa el raton sobre el grafico",
+      CENTER, 200, 35, color(235), 255);
     float targetScale = pointerIsNear ? 1.45 : 1.0;
-    scale = lerp(scale, targetScale, 0.14);
+    currentScale = lerp(currentScale, targetScale, 0.14);
+    scale(currentScale);
     angle += pointerIsNear ? 2.0 : 0.3;
   }
 }

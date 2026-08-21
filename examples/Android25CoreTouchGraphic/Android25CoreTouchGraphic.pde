@@ -3,7 +3,7 @@ import simplecore.*;
 Core taskCore;
 InteractiveDiamond diamond;
 PImage diamondImage;
-float designScale;
+PFont gameFont;
 
 void settings() {
   fullScreen();
@@ -11,36 +11,32 @@ void settings() {
 
 void setup() {
   orientation(PORTRAIT);
-  designScale = width / 400.0;
   taskCore = Core.start(this);
-  taskCore.setTaskCanvasScale(designScale);
+  taskCore.setMode(400, 700, ViewportMode.FIT);
   diamondImage = createDiamondImage(90, color(255, 205, 55));
-  diamond = new InteractiveDiamond(200, 280);
+  gameFont = createFont("SansSerif", 18);
+  diamond = new InteractiveDiamond(200, 350);
 }
 
 void draw() {
   background(25, 31, 46);
-  pushMatrix();
-  scale(designScale);
-  fill(235);
-  textAlign(CENTER, TOP);
-  textSize(18);
-  text("Manten el dedo sobre el grafico", 200, 30);
-  popMatrix();
 }
 
 class InteractiveDiamond extends Task {
+  float currentScale = 1;
+
   InteractiveDiamond(float startX, float startY) {
     setGraph(diamondImage);
     setPosition(startX, startY);
   }
 
   protected void frame() {
-    float touchX = mouseX / designScale;
-    float touchY = mouseY / designScale;
-    boolean fingerIsNear = mousePressed && dist(touchX, touchY, x, y) < 70;
+    boolean fingerIsNear = mouse.left && dist(mouse.x, mouse.y, x, y) < 70;
+    text(gameFont, 18, "Manten el dedo sobre el grafico",
+      CENTER, 200, 35, color(235), 255);
     float targetScale = fingerIsNear ? 1.45 : 1.0;
-    scale = lerp(scale, targetScale, 0.14);
+    currentScale = lerp(currentScale, targetScale, 0.14);
+    scale(currentScale);
     angle += fingerIsNear ? 2.0 : 0.3;
   }
 }
