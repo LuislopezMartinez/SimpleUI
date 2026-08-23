@@ -39,6 +39,13 @@ jobs:
             -Uri "https://repo1.maven.org/maven2/org/processing/core/4.5.2/core-4.5.2.jar" `
             -OutFile $desktopCore
 
+          Invoke-WebRequest `
+            -Uri "https://repo1.maven.org/maven2/org/jogamp/jogl/jogl-all/2.6.0/jogl-all-2.6.0.jar" `
+            -OutFile (Join-Path $dependencies "jogl-all-2.6.0.jar")
+          Invoke-WebRequest `
+            -Uri "https://repo1.maven.org/maven2/org/jogamp/gluegen/gluegen-rt/2.6.0/gluegen-rt-2.6.0.jar" `
+            -OutFile (Join-Path $dependencies "gluegen-rt-2.6.0.jar")
+
           $androidModeZip = Join-Path $dependencies "AndroidMode.zip"
           Invoke-WebRequest `
             -Uri "https://github.com/processing/processing-android/releases/download/latest/AndroidMode.zip" `
