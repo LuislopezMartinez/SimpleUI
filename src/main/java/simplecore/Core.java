@@ -10,10 +10,18 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.HashSet;
+import java.io.File;
+import java.lang.reflect.Constructor;
 import processing.core.PApplet;
 import processing.core.PConstants;
+import processing.core.PFont;
+import processing.core.PImage;
 import processing.event.KeyEvent;
 import processing.event.MouseEvent;
+import processing.event.TouchEvent;
+import simplecore.internal.AudioPlatform;
+import simplecore.internal.FailedSoundBackend;
+import simplecore.internal.SoundBackend;
 
 /** A single Processing-bound task engine. */
 public final class Core {
@@ -26,6 +34,8 @@ public final class Core {
     public static final int MOUSE_LEFT = PConstants.LEFT;
     public static final int MOUSE_RIGHT = PConstants.RIGHT;
     public static final int MOUSE_CENTER = PConstants.CENTER;
+
+    private static final int DEFAULT_FADE_DURATION = 500;
 
     private static final Comparator<Task> PRIORITY_ORDER = new Comparator<Task>() {
         public int compare(Task first, Task second) {
@@ -44,6 +54,10 @@ public final class Core {
     private final ArrayList<Task> tasks = new ArrayList<Task>();
     private final ArrayList<Task> pendingTasks = new ArrayList<Task>();
     private final ArrayList<Task> drawableTasks = new ArrayList<Task>();
+    private final ArrayList<Scene> scenes = new ArrayList<Scene>();
+    private final ArrayList<Sound> sounds = new ArrayList<Sound>();
+    private final ArrayList<TouchPoint> activePoints = new ArrayList<TouchPoint>();
+    public final java.util.List<TouchPoint> points = Collections.unmodifiableList(activePoints);
     private final HashSet<Integer> pressedKeys = new HashSet<Integer>();
     public final CoreMouse mouse = new CoreMouse();
     private boolean updating;
@@ -51,14 +65,27 @@ public final class Core {
     private boolean automaticRendering = true;
     private int lastTaskId;
     private Task caller;
+    private AudioPlatform audioPlatform;
+    private String audioPlatformError;
+    private Scene activeScene;
+    private int fadeColor = 0xFF000000;
+    private float fadeAmount;
+    private float fadeStartAmount;
+    private float fadeTargetAmount;
+    private int fadeStartMillis;
+    private int fadeDuration;
+    private boolean fading;
+    private final boolean androidRuntime;
 
     private Core(PApplet parent) {
         this.parent = parent;
+        androidRuntime = detectAndroidRuntime(parent);
         Viewport.attach(parent);
         parent.registerMethod("pre", this);
         parent.registerMethod("draw", this);
         parent.registerMethod("keyEvent", this);
         parent.registerMethod("mouseEvent", this);
+        if (androidRuntime) parent.registerMethod("touchEvent", this);
         parent.registerMethod("dispose", this);
     }
 
@@ -137,6 +164,286 @@ public final class Core {
         return caller;
     }
 
+    public Scene createScene() {
+        return new Scene();
+    }
+
+    public void setScene(Scene scene) {
+        if (scene != null && !scenes.contains(scene)) {
+            throw new IllegalArgumentException("Scene belongs to another Core");
+        }
+        activeScene = scene;
+        if (activeScene != null) activeScene.camera.update();
+    }
+
+    public Scene getScene() {
+        return activeScene;
+    }
+
+    void registerScene(Scene scene) {
+        if (scene == null || scenes.contains(scene)) return;
+        scenes.add(scene);
+    }
+
+    void attachToActiveScene(Task task) {
+        if (activeScene != null) activeScene.add(task);
+    }
+
+    /** Loads one supported image from the sketch data folder. */
+    public PImage loadImage(String filename) {
+        String safeFilename = normalizeResourcePath(filename);
+        if (!isImageFilename(safeFilename)) return null;
+        try {
+            return parent.loadImage(safeFilename);
+        } catch (RuntimeException failure) {
+            return null;
+        }
+    }
+
+    /** Loads supported images from a data-folder directory, alphabetically. */
+    public PImage[] loadImages(String folderName) {
+        ArrayList<PImage> result = new ArrayList<PImage>();
+        for (String filename : listResourceFiles(folderName)) {
+            if (!isImageFilename(filename)) continue;
+            PImage image = loadImage(joinResourcePath(folderName, filename));
+            if (image != null) result.add(image);
+        }
+        return result.toArray(new PImage[result.size()]);
+    }
+
+    /** Loads one TTF/OTF font at the requested size, or a prebuilt VLW font. */
+    public PFont loadFont(String filename, float size) {
+        requireFontSize(size);
+        String safeFilename = normalizeResourcePath(filename);
+        if (!isFontFilename(safeFilename)) return null;
+        try {
+            if (safeFilename.toLowerCase(java.util.Locale.ROOT).endsWith(".vlw")) {
+                return parent.loadFont(safeFilename);
+            }
+            return parent.createFont(safeFilename, size, true);
+        } catch (RuntimeException failure) {
+            return null;
+        }
+    }
+
+    /** Loads supported fonts from a data-folder directory, alphabetically. */
+    public PFont[] loadFonts(String folderName, float size) {
+        requireFontSize(size);
+        ArrayList<PFont> result = new ArrayList<PFont>();
+        for (String filename : listResourceFiles(folderName)) {
+            if (!isFontFilename(filename)) continue;
+            PFont font = loadFont(joinResourcePath(folderName, filename), size);
+            if (font != null) result.add(font);
+        }
+        return result.toArray(new PFont[result.size()]);
+    }
+
+    private ArrayList<String> listResourceFiles(String folderName) {
+        String safeFolder = normalizeResourcePath(folderName);
+        ArrayList<String> result = new ArrayList<String>();
+        if (safeFolder.length() == 0) return result;
+        try {
+            if (isAndroidRuntime()) {
+                Object activity = parent.getClass().getMethod("getActivity").invoke(parent);
+                Object assets = activity.getClass().getMethod("getAssets").invoke(activity);
+                String[] names = (String[])assets.getClass()
+                    .getMethod("list", String.class).invoke(assets, safeFolder);
+                if (names != null) Collections.addAll(result, names);
+            } else {
+                File directory = new File(parent.dataPath(safeFolder));
+                File[] files = directory.listFiles();
+                if (files != null) {
+                    for (File file : files) if (file.isFile()) result.add(file.getName());
+                }
+            }
+        } catch (Exception ignored) {}
+        Collections.sort(result, String.CASE_INSENSITIVE_ORDER);
+        return result;
+    }
+
+    private boolean isAndroidRuntime() {
+        return androidRuntime;
+    }
+
+    private static boolean detectAndroidRuntime(PApplet parent) {
+        try {
+            parent.getClass().getMethod("getActivity");
+            return true;
+        } catch (NoSuchMethodException ignored) {
+            return false;
+        }
+    }
+
+    private static String normalizeResourcePath(String value) {
+        if (value == null) return "";
+        String result = value.replace('\\', '/').trim();
+        while (result.startsWith("/")) result = result.substring(1);
+        while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
+        return result;
+    }
+
+    private static String joinResourcePath(String folderName, String filename) {
+        String folder = normalizeResourcePath(folderName);
+        String file = normalizeResourcePath(filename);
+        return folder.length() == 0 ? file : folder + "/" + file;
+    }
+
+    private static boolean isImageFilename(String filename) {
+        String lower = filename.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".png") || lower.endsWith(".jpg") ||
+            lower.endsWith(".jpeg") || lower.endsWith(".gif") || lower.endsWith(".tga");
+    }
+
+    private static boolean isFontFilename(String filename) {
+        String lower = filename.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".ttf") || lower.endsWith(".otf") || lower.endsWith(".vlw");
+    }
+
+    private static void requireFontSize(float size) {
+        if (!Float.isFinite(size) || size <= 0.0f) {
+            throw new IllegalArgumentException("Font size must be positive and finite");
+        }
+    }
+
+    /** Covers the screen with black using the default duration. */
+    public void fadeOff() {
+        fadeOff(0xFF000000, DEFAULT_FADE_DURATION);
+    }
+
+    /** Covers the screen with black in the requested number of milliseconds. */
+    public void fadeOff(int durationMillis) {
+        fadeOff(0xFF000000, durationMillis);
+    }
+
+    /** Covers the screen with a Processing color, preserving its alpha. */
+    public void fadeOff(int color, int durationMillis) {
+        updateFade();
+        fadeColor = color;
+        beginFade(1.0f, durationMillis);
+    }
+
+    /** Reveals the screen using the previous fade color and default duration. */
+    public void fadeOn() {
+        fadeOn(DEFAULT_FADE_DURATION);
+    }
+
+    /** Reveals the screen using the previous fade color. */
+    public void fadeOn(int durationMillis) {
+        updateFade();
+        beginFade(0.0f, durationMillis);
+    }
+
+    /** Returns true while a fade transition is moving. */
+    public boolean isFading() {
+        updateFade();
+        return fading;
+    }
+
+    /** Returns true once fadeOff has completely covered the screen. */
+    public boolean isFaded() {
+        updateFade();
+        return !fading && fadeAmount >= 1.0f;
+    }
+
+    private void beginFade(float targetAmount, int durationMillis) {
+        fadeStartAmount = fadeAmount;
+        fadeTargetAmount = targetAmount;
+        fadeStartMillis = parent.millis();
+        fadeDuration = Math.max(0, durationMillis);
+        fading = fadeDuration > 0 && fadeStartAmount != fadeTargetAmount;
+        if (!fading) fadeAmount = fadeTargetAmount;
+    }
+
+    private void updateFade() {
+        if (!fading) return;
+        float elapsed = Math.max(0, parent.millis() - fadeStartMillis);
+        float progress = Math.min(1.0f, elapsed / fadeDuration);
+        float smoothProgress = progress * progress * (3.0f - 2.0f * progress);
+        fadeAmount = fadeStartAmount + (fadeTargetAmount - fadeStartAmount) * smoothProgress;
+        if (progress >= 1.0f) {
+            fadeAmount = fadeTargetAmount;
+            fading = false;
+        }
+    }
+
+    private void renderFade() {
+        if (fadeAmount <= 0.0f) return;
+        float colorAlpha = (fadeColor >>> 24) & 0xFF;
+        float overlayAlpha = colorAlpha * fadeAmount;
+        if (overlayAlpha <= 0.0f) return;
+        parent.pushMatrix();
+        parent.pushStyle();
+        try {
+            parent.resetMatrix();
+            parent.rectMode(PConstants.CORNER);
+            parent.noStroke();
+            parent.fill(fadeColor, overlayAlpha);
+            parent.rect(0, 0, parent.width, parent.height);
+        } finally {
+            parent.popStyle();
+            parent.popMatrix();
+        }
+    }
+
+    /** Loads an MP3, Ogg Vorbis or PCM WAV file from the sketch data folder. */
+    public Sound loadSound(String filename) {
+        String safeFilename = filename == null ? "" : filename.replace('\\', '/').trim();
+        SoundBackend backend;
+        if (safeFilename.length() == 0) {
+            backend = new FailedSoundBackend("Sound filename must not be empty");
+        } else {
+            AudioPlatform platform = getAudioPlatform();
+            backend = platform == null
+                ? new FailedSoundBackend(audioPlatformError)
+                : platform.load(safeFilename);
+            if (backend == null) backend = new FailedSoundBackend("Audio backend returned no sound");
+        }
+        Sound sound = new Sound(this, safeFilename, backend);
+        sounds.add(sound);
+        return sound;
+    }
+
+    /** Loads every supported sound in a data-folder directory, alphabetically. */
+    public Sound[] loadSounds(String folderName) {
+        String safeFolder = folderName == null ? "" : folderName.replace('\\', '/').trim();
+        AudioPlatform platform = getAudioPlatform();
+        if (platform == null || safeFolder.length() == 0) return new Sound[0];
+        String[] filenames = platform.list(safeFolder);
+        if (filenames == null) return new Sound[0];
+        ArrayList<String> supported = new ArrayList<String>();
+        for (String filename : filenames) {
+            if (filename == null) continue;
+            String lower = filename.toLowerCase(java.util.Locale.ROOT);
+            if (lower.endsWith(".mp3") || lower.endsWith(".ogg") || lower.endsWith(".wav")) {
+                supported.add(filename.replace('\\', '/'));
+            }
+        }
+        Collections.sort(supported, String.CASE_INSENSITIVE_ORDER);
+        Sound[] result = new Sound[supported.size()];
+        for (int index = 0; index < result.length; index++) result[index] = loadSound(supported.get(index));
+        return result;
+    }
+
+    private AudioPlatform getAudioPlatform() {
+        if (audioPlatform != null || audioPlatformError != null) return audioPlatform;
+        String className = isAndroidRuntime()
+            ? "simplecore.audio.AndroidAudioPlatform"
+            : "simplecore.audio.DesktopAudioPlatform";
+        try {
+            Class<?> platformType = Class.forName(className);
+            Constructor<?> constructor = platformType.getConstructor(PApplet.class);
+            audioPlatform = (AudioPlatform)constructor.newInstance(parent);
+        } catch (Exception failure) {
+            Throwable cause = failure.getCause() == null ? failure : failure.getCause();
+            audioPlatformError = "Cannot initialize audio: " + cause.toString();
+        }
+        return audioPlatform;
+    }
+
+    void unregisterSound(Sound sound) {
+        sounds.remove(sound);
+    }
+
     /** Returns true while the requested key is held down. */
     public boolean key(int code) {
         return pressedKeys.contains(code);
@@ -158,12 +465,75 @@ public final class Core {
         mouse.move(event.getX(), event.getY());
         if (event.getAction() == MouseEvent.PRESS) mouse.press(event.getButton());
         else if (event.getAction() == MouseEvent.RELEASE) mouse.release(event.getButton());
+        if (!androidRuntime) updateMousePoint();
+    }
+
+    /** Processing Android multitouch callback; installed automatically. */
+    public void touchEvent(TouchEvent event) {
+        if (event == null || shuttingDown || !androidRuntime) return;
+        Viewport.update();
+        try {
+            int count = ((Number)event.getClass().getMethod("getNumPointers").invoke(event)).intValue();
+            ArrayList<TouchPoint> next = new ArrayList<TouchPoint>(count);
+            for (int index = 0; index < count; index++) {
+                int id = invokeTouchInt(event, "getPointerId", index);
+                float screenX = invokeTouchFloat(event, "getPointerX", index);
+                float screenY = invokeTouchFloat(event, "getPointerY", index);
+                float area = invokeTouchFloat(event, "getPointerArea", index);
+                float pressure = invokeTouchFloat(event, "getPointerPressure", index);
+                TouchPoint point = findActivePoint(id);
+                float logicalX = Viewport.screenToDesignX(screenX);
+                float logicalY = Viewport.screenToDesignY(screenY);
+                if (point == null) point = new TouchPoint(id, logicalX, logicalY, area, pressure);
+                else point.update(logicalX, logicalY, area, pressure);
+                next.add(point);
+            }
+            activePoints.clear();
+            activePoints.addAll(next);
+        } catch (Exception failure) {
+            activePoints.clear();
+        }
+    }
+
+    private static int invokeTouchInt(TouchEvent event, String method, int index) throws Exception {
+        return ((Number)event.getClass().getMethod(method, Integer.TYPE).invoke(event, index)).intValue();
+    }
+
+    private static float invokeTouchFloat(TouchEvent event, String method, int index) throws Exception {
+        return ((Number)event.getClass().getMethod(method, Integer.TYPE).invoke(event, index)).floatValue();
+    }
+
+    private void updateMousePoint() {
+        boolean pressed = mouse.left || mouse.right || mouse.center;
+        if (!pressed) {
+            activePoints.clear();
+            return;
+        }
+        TouchPoint point = findActivePoint(0);
+        if (point == null) {
+            activePoints.clear();
+            activePoints.add(new TouchPoint(0, mouse.x, mouse.y, 1.0f, 1.0f));
+        } else {
+            point.update(mouse.x, mouse.y, 1.0f, 1.0f);
+        }
     }
 
     /** Clears keyboard and mouse state. */
     public void clearInput() {
         pressedKeys.clear();
         mouse.clear();
+        activePoints.clear();
+    }
+
+    TouchPoint findActivePoint(int id) {
+        for (TouchPoint point : activePoints) if (point.id == id) return point;
+        return null;
+    }
+
+    boolean isActivePoint(TouchPoint target) {
+        if (target == null) return false;
+        for (TouchPoint point : activePoints) if (point == target) return true;
+        return false;
     }
 
     private int normalizeKey(KeyEvent event) {
@@ -251,6 +621,7 @@ public final class Core {
     public void pre() {
         if (shuttingDown) return;
         Viewport.update();
+        updateFade();
         if (!parent.focused) clearInput();
         Collections.sort(tasks, PRIORITY_ORDER);
         updating = true;
@@ -260,6 +631,10 @@ public final class Core {
                 caller = task;
                 if (!task.live) {
                     destroyTaskAt(index);
+                    continue;
+                }
+                if (task.scene != null && task.scene != activeScene) {
+                    index++;
                     continue;
                 }
                 task.beginFrame();
@@ -285,18 +660,33 @@ public final class Core {
                 tasks.addAll(pendingTasks);
                 pendingTasks.clear();
             }
+            if (activeScene != null) activeScene.camera.update();
         }
     }
 
     /** Processing callback invoked after the sketch draw method. */
     public void draw() {
-        if (!shuttingDown && automaticRendering) renderTasks();
+        if (shuttingDown) return;
+        try {
+            if (automaticRendering) renderTasks();
+            updateFade();
+            renderFade();
+        } finally {
+            for (TouchPoint point : activePoints) {
+                point.deltaX = 0.0f;
+                point.deltaY = 0.0f;
+            }
+        }
     }
 
     public void renderTasks() {
         if (shuttingDown) return;
         drawableTasks.clear();
-        for (Task task : tasks) if (task.isDrawable()) drawableTasks.add(task);
+        for (Task task : tasks) {
+            if (task.isDrawable() && (task.scene == null || task.scene == activeScene)) {
+                drawableTasks.add(task);
+            }
+        }
         Collections.sort(drawableTasks, Z_ORDER);
         parent.pushMatrix();
         parent.translate(Viewport.getOffsetX(), Viewport.getOffsetY());
@@ -304,8 +694,16 @@ public final class Core {
         try {
             for (Task task : drawableTasks) {
                 if (!task.isDrawable()) continue;
-                task.render();
-                task.renderText();
+                parent.pushMatrix();
+                try {
+                    if (task.scene != null) {
+                        parent.translate(-task.scene.camera.x, -task.scene.camera.y);
+                    }
+                    task.render();
+                    task.renderText();
+                } finally {
+                    parent.popMatrix();
+                }
             }
         } finally {
             parent.popMatrix();
@@ -322,11 +720,15 @@ public final class Core {
         if (task == null || task.destroyed) return;
         task.live = false;
         task.destroyed = true;
+        task.releaseInternalState();
+        Scene owner = task.scene;
         Task previousCaller = caller;
         caller = task;
         try {
             task.onDestroy();
         } finally {
+            if (owner != null) owner.removeInternal(task);
+            task.scene = null;
             caller = previousCaller;
         }
     }
@@ -348,6 +750,7 @@ public final class Core {
         parent.unregisterMethod("draw", this);
         parent.unregisterMethod("keyEvent", this);
         parent.unregisterMethod("mouseEvent", this);
+        if (androidRuntime) parent.unregisterMethod("touchEvent", this);
         parent.unregisterMethod("dispose", this);
 
         RuntimeException firstFailure = null;
@@ -367,10 +770,23 @@ public final class Core {
         tasks.clear();
         pendingTasks.clear();
         drawableTasks.clear();
+        for (Scene scene : new ArrayList<Scene>(scenes)) scene.clearInternal();
+        scenes.clear();
+        activeScene = null;
+        ArrayList<Sound> loadedSounds = new ArrayList<Sound>(sounds);
+        sounds.clear();
+        for (Sound sound : loadedSounds) sound.disposeFromCore();
         clearInput();
         caller = null;
         updating = false;
         lastTaskId = 0;
+        audioPlatform = null;
+        audioPlatformError = null;
+        fadeAmount = 0.0f;
+        fadeStartAmount = 0.0f;
+        fadeTargetAmount = 0.0f;
+        fadeDuration = 0;
+        fading = false;
         synchronized (Core.class) {
             if (instance == this) instance = null;
         }

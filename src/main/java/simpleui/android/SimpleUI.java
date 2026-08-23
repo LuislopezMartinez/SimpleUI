@@ -33,6 +33,8 @@ public static final String LIBRARY_LICENSE = "MIT";
 
     private static PApplet app;
     private static EventBridge eventBridge;
+    private static RenderBridge renderBridge;
+    private static int lastRenderedFrame = Integer.MIN_VALUE;
     private static boolean automaticEventHandling = true;
     private static KeyEventInterceptor keyEventInterceptor;
 
@@ -48,6 +50,7 @@ public static final String LIBRARY_LICENSE = "MIT";
     }
 
     public static void detach() {
+        uninstallRenderBridge();
         uninstallEventBridge();
         app = null;
     }
@@ -83,6 +86,32 @@ public static final String LIBRARY_LICENSE = "MIT";
         app.unregisterMethod("keyEvent", eventBridge);
         app.unregisterMethod("dispose", eventBridge);
         eventBridge = null;
+    }
+
+    private static void installRenderBridge() {
+        if (app == null || renderBridge != null) return;
+        renderBridge = new RenderBridge();
+        app.registerMethod("pre", renderBridge);
+        app.registerMethod("draw", renderBridge);
+    }
+
+    private static void uninstallRenderBridge() {
+        if (app == null || renderBridge == null) return;
+        app.unregisterMethod("pre", renderBridge);
+        app.unregisterMethod("draw", renderBridge);
+        renderBridge = null;
+    }
+
+    public static final class RenderBridge {
+        private RenderBridge() {}
+
+        public void pre() {
+            if (app != null && currentTheme != null) app.background(currentTheme.backgroundColor);
+        }
+
+        public void draw() {
+            if (app != null && app.frameCount != lastRenderedFrame) updateAndDrawUI();
+        }
     }
 
     public static final class EventBridge {
@@ -123,9 +152,11 @@ public static final String LIBRARY_LICENSE = "MIT";
         return app;
     }
 
-    public static void initUI(PApplet host, String fontName, int baseFontSize) {
+    public static void initUI(PApplet host, String fontName, int baseFontSize, UIScaleMode mode) {
         attach(host);
-        initUI(fontName, baseFontSize);
+        initializeUI(fontName, baseFontSize);
+        setMode(host.width, host.height, mode);
+        installRenderBridge();
     }
 
     public static void syncHostState() {
@@ -156,6 +187,7 @@ public static final String LIBRARY_LICENSE = "MIT";
     public static void popStyle() { app.popStyle(); }
     public static void translate(float x, float y) { app.translate(x, y); }
     public static void scale(float value) { app.scale(value); }
+    public static void scale(float x, float y) { app.scale(x, y); }
     public static void stroke(int value) { app.stroke(value); }
     public static void stroke(int value, float alpha) { app.stroke(value, alpha); }
     public static void stroke(int r, int g, int b) { app.stroke(r, g, b); }
@@ -289,6 +321,8 @@ public static void triggerEvent(UIElement element, String action, Object data) {
 public static ArrayList<UIElement> uiElements = new ArrayList<UIElement>();
 public static PFont uiFont;
 public static float uiScale = 1.0f;
+public static float uiScaleX = 1.0f;
+public static float uiScaleY = 1.0f;
 public static float designWidth = 0;
 public static float designHeight = 0;
 public static float logicalWidth = 0;
@@ -332,7 +366,7 @@ public static Runnable uiModalConfirmAction = null;
 public static Runnable uiModalCancelAction = null;
 public static String uiModalActionId = "";
 
-public static void initUI(String fontName, int baseFontSize) {
+private static void initializeUI(String fontName, int baseFontSize) {
     uiFont = createFont(fontName, baseFontSize, true);
     textFont(uiFont);
     setTheme(UIColorTheme.LIGHT);
@@ -397,18 +431,20 @@ public static void updateViewport() {
     designHeight = Viewport.getDesignHeight();
     logicalWidth = Viewport.getLogicalWidth();
     logicalHeight = Viewport.getLogicalHeight();
-    uiScale = Viewport.getScaleX();
+    uiScaleX = Viewport.getScaleX();
+    uiScaleY = Viewport.getScaleY();
+    uiScale = uiScaleX;
     viewportOffsetX = Viewport.getOffsetX();
     viewportOffsetY = Viewport.getOffsetY();
     scaleMode = UIScaleMode.valueOf(Viewport.getMode().name());
 }
 
 public static float getLogicalWidth() {
-    return modeConfigured ? logicalWidth : width / uiScale;
+    return modeConfigured ? logicalWidth : width / uiScaleX;
 }
 
 public static float getLogicalHeight() {
-    return modeConfigured ? logicalHeight : height / uiScale;
+    return modeConfigured ? logicalHeight : height / uiScaleY;
 }
 
 public static float screenToDesignX(float screenX) {
@@ -465,7 +501,7 @@ public static float anchoredContentBottomPixels() {
         if (!e.isAnchored() || !e.isVisible) continue;
         bottom = max(
             bottom,
-            viewportOffsetY + (e.y + e.height) * uiScale
+            viewportOffsetY + (e.y + e.height) * uiScaleY
         );
     }
     return bottom;
@@ -501,14 +537,14 @@ public static void updateKeyboardAvoidance() {
     keyboardAvoidanceField = field;
 
     float visibleBottom = androidVisibleBottom > 0 ? androidVisibleBottom : height;
-    float desiredBottom = visibleBottom - KEYBOARD_FIELD_MARGIN * uiScale;
-    float fieldTop = viewportOffsetY + field.y * uiScale;
+    float desiredBottom = visibleBottom - KEYBOARD_FIELD_MARGIN * uiScaleY;
+    float fieldTop = viewportOffsetY + field.y * uiScaleY;
     float fieldBottom =
-        viewportOffsetY + (field.y + field.height) * uiScale;
+        viewportOffsetY + (field.y + field.height) * uiScaleY;
     float desiredScroll = min(scrollBeforeKeyboard, desiredBottom - fieldBottom);
 
     // No permitir que el ajuste coloque el campo bajo la cabecera anclada.
-    float minimumFieldTop = anchoredContentBottomPixels() + KEYBOARD_FIELD_MARGIN * uiScale;
+    float minimumFieldTop = anchoredContentBottomPixels() + KEYBOARD_FIELD_MARGIN * uiScaleY;
     float mostNegativeAllowed = minimumFieldTop - fieldTop;
     desiredScroll = max(desiredScroll, mostNegativeAllowed);
     desiredScroll = min(0, desiredScroll);
@@ -524,7 +560,7 @@ public static void drawUIContent() {
     // CAPA SCROLL
     pushMatrix();
     translate(viewportOffsetX, viewportOffsetY + scrollState.currentY);
-    scale(uiScale);
+    scale(uiScaleX, uiScaleY);
 
     // Capa 1: no-dropdown scrolleables
     for (UIElement e : uiElements) {
@@ -553,7 +589,7 @@ public static void drawUIContent() {
     // CAPA ANCLADA (sin scroll)
     pushMatrix();
     translate(viewportOffsetX, viewportOffsetY);
-    scale(uiScale);
+    scale(uiScaleX, uiScaleY);
 
     // Capa 4: no-dropdown anclados
     for (UIElement e : uiElements) {
@@ -686,7 +722,7 @@ public static void drawModalOverlay() {
     pushStyle();
     pushMatrix();
     translate(viewportOffsetX, viewportOffsetY);
-    scale(uiScale);
+    scale(uiScaleX, uiScaleY);
     noStroke();
     fill(0, 150);
     rect(0, 0, designWidth, designHeight);
@@ -753,6 +789,7 @@ public static boolean isPointInModalCancelButton(float mx, float my) {
 }
 
 public static void updateAndDrawUI() {
+    lastRenderedFrame = app == null ? Integer.MIN_VALUE : app.frameCount;
     updateUI();
     drawUI();
 }
@@ -807,11 +844,11 @@ public static boolean isPointInElement(float mx, float my, UIElement element) {
 }
 
 public static float getScaledMouseX() {
-    return (mouseX - viewportOffsetX) / uiScale;
+    return (mouseX - viewportOffsetX) / uiScaleX;
 }
 
 public static float getScaledMouseY() {
-    return (mouseY - viewportOffsetY - uiInputYOffset) / uiScale;
+    return (mouseY - viewportOffsetY - uiInputYOffset) / uiScaleY;
 }
 
 public static boolean isGestureScrollableElement(UIElement e) {
@@ -998,8 +1035,8 @@ public static void handleUIModalMousePressed() {
     gestureState.lastX = mouseX;
     gestureState.lastY = mouseY;
     gestureState.isTapCandidate = true;
-    float mx = (mouseX - viewportOffsetX) / uiScale;
-    float my = (mouseY - viewportOffsetY) / uiScale;
+    float mx = (mouseX - viewportOffsetX) / uiScaleX;
+    float my = (mouseY - viewportOffsetY) / uiScaleY;
     UIElement hit = activeUIModal.findTopMostControlAt(mx, my);
     if (activeTextField != null && activeTextField != hit) {
         activeTextField.setFocused(false);
@@ -1012,8 +1049,8 @@ public static void handleUIModalMousePressed() {
 
 public static void handleUIModalMouseReleased() {
     activeUIModal.layout();
-    float mx = (mouseX - viewportOffsetX) / uiScale;
-    float my = (mouseY - viewportOffsetY) / uiScale;
+    float mx = (mouseX - viewportOffsetX) / uiScaleX;
+    float my = (mouseY - viewportOffsetY) / uiScaleY;
     boolean isTap = dist(gestureState.startX, gestureState.startY, mouseX, mouseY) <= SCROLL_DEAD_ZONE;
     if (isTap && gestureState.pressedElement != null) {
         performTapAction(mx, my, my);
@@ -1158,7 +1195,7 @@ public static float calculateMaxContentBottom() {
     float maxBottom = 0;
     for (UIElement e : uiElements) {
         if (!e.isVisible || e.isAnchored()) continue;
-        float elementBottom = (e.y + e.height) * uiScale;
+        float elementBottom = (e.y + e.height) * uiScaleY;
         if (elementBottom > maxBottom) {
             maxBottom = elementBottom;
         }

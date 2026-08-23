@@ -6,8 +6,6 @@
 package simpleui.desktop;
 
 import java.util.*;
-import java.lang.reflect.*;
-import java.util.concurrent.*;
 import processing.core.*;
 import processing.event.*;
 import simplecore.Viewport;
@@ -21,9 +19,10 @@ public static final String LIBRARY_LICENSE = "MIT";
 
     private static PApplet app;
     private static EventBridge eventBridge;
+    private static RenderBridge renderBridge;
+    private static int lastRenderedFrame = Integer.MIN_VALUE;
     private static boolean automaticEventHandling = true;
     private static KeyEventInterceptor keyEventInterceptor;
-    private static WindowsResizeGuard windowsResizeGuard;
 
     private SimpleUI() {}
 
@@ -31,41 +30,17 @@ public static final String LIBRARY_LICENSE = "MIT";
         if (host == null) throw new IllegalArgumentException("SimpleUI requires a PApplet host");
         if (app != null && app != host) detach();
         app = host;
+        if (app.g != null) app.g.setParent(app);
+        app.hint(PConstants.ENABLE_KEY_REPEAT);
         Viewport.attach(host);
         syncHostState();
         installEventBridge();
-        installWindowsResizeGuard();
     }
 
     public static void detach() {
-        uninstallWindowsResizeGuard();
+        uninstallRenderBridge();
         uninstallEventBridge();
         app = null;
-    }
-
-    /**
-     * Reports whether the automatic Windows/Java2D resize guard is active.
-     * The guard installs itself from {@link #attach(PApplet)} and
-     * {@link #initUI(PApplet, String, int)} when the host uses PSurfaceAWT.
-     */
-    public static boolean isWindowsResizeGuardActive() {
-        return windowsResizeGuard != null;
-    }
-
-    private static void installWindowsResizeGuard() {
-        if (app == null || windowsResizeGuard != null) return;
-        WindowsResizeGuard candidate = WindowsResizeGuard.create(app);
-        if (candidate != null) {
-            windowsResizeGuard = candidate;
-            candidate.install();
-        }
-    }
-
-    private static void uninstallWindowsResizeGuard() {
-        if (windowsResizeGuard == null) return;
-        WindowsResizeGuard guard = windowsResizeGuard;
-        windowsResizeGuard = null;
-        guard.uninstall();
     }
 
     public static void setAutomaticEventHandling(boolean enabled) {
@@ -101,276 +76,29 @@ public static final String LIBRARY_LICENSE = "MIT";
         eventBridge = null;
     }
 
-    private static final class WindowsResizeGuard {
-        private static final int SETTLE_DELAY_MS = 180;
-        private static final int FRAME_ICONIFIED = 1;
-        private static final String BUFFER_ERROR =
-            "Buffers have not been created";
+    private static void installRenderBridge() {
+        if (app == null || renderBridge != null) return;
+        renderBridge = new RenderBridge();
+        app.registerMethod("pre", renderBridge);
+        app.registerMethod("draw", renderBridge);
+    }
 
-        private final PSurface surface;
-        private final Object canvas;
-        private final Object window;
-        private final ScheduledExecutorService settleExecutor;
-        private final Thread.UncaughtExceptionHandler previousExceptionHandler;
-        private final Thread.UncaughtExceptionHandler exceptionHandler;
-        private final Object componentListener;
-        private final Object windowListener;
-        private ScheduledFuture<?> settleTask;
+    private static void uninstallRenderBridge() {
+        if (app == null || renderBridge == null) return;
+        app.unregisterMethod("pre", renderBridge);
+        app.unregisterMethod("draw", renderBridge);
+        renderBridge = null;
+    }
 
-        private volatile boolean recoveryDispatchPending;
-        private boolean recoveryPending;
-        private boolean closing;
+    public static final class RenderBridge {
+        private RenderBridge() {}
 
-        private WindowsResizeGuard(
-            PSurface surface,
-            Object canvas,
-            Object window
-        ) {
-            this.surface = surface;
-            this.canvas = canvas;
-            this.window = window;
-            previousExceptionHandler =
-                Thread.getDefaultUncaughtExceptionHandler();
-
-            settleExecutor = Executors.newSingleThreadScheduledExecutor();
-
-            try {
-                ClassLoader loader = SimpleUI.class.getClassLoader();
-                Class<?> componentType = Class.forName("java.awt.event.ComponentListener", false, loader);
-                componentListener = Proxy.newProxyInstance(loader, new Class<?>[]{componentType},
-                    new ComponentInvocationHandler(this));
-
-                Class<?> stateType = Class.forName("java.awt.event.WindowStateListener", false, loader);
-                Class<?> windowType = Class.forName("java.awt.event.WindowListener", false, loader);
-                windowListener = Proxy.newProxyInstance(loader, new Class<?>[]{stateType, windowType},
-                    new WindowInvocationHandler(this));
-            } catch (ReflectiveOperationException failure) {
-                settleExecutor.shutdownNow();
-                throw new IllegalStateException("Cannot initialize the Windows resize guard", failure);
-            }
-
-            exceptionHandler = new ResizeExceptionHandler(this);
+        public void pre() {
+            if (app != null && currentTheme != null) app.background(currentTheme.backgroundColor);
         }
 
-        static WindowsResizeGuard create(PApplet host) {
-            String osName = System.getProperty("os.name", "");
-            if (!osName.toLowerCase(Locale.ROOT).contains("windows")) {
-                return null;
-            }
-
-            PSurface surface = host.getSurface();
-            if (surface == null || !"processing.awt.PSurfaceAWT".equals(surface.getClass().getName())) return null;
-            Object nativeSurface = surface.getNative();
-            if (nativeSurface == null || !"processing.awt.PSurfaceAWT$SmoothCanvas".equals(nativeSurface.getClass().getName())) return null;
-            try {
-                Object frame = nativeSurface.getClass().getMethod("getFrame").invoke(nativeSurface);
-                if (frame == null || !Class.forName("javax.swing.JFrame").isInstance(frame)) return null;
-                return new WindowsResizeGuard(surface, nativeSurface, frame);
-            } catch (ReflectiveOperationException | LinkageError failure) {
-                return null;
-            }
-        }
-
-        void install() {
-            invokeListener(canvas, "addComponentListener", "java.awt.event.ComponentListener", componentListener);
-            invokeListener(window, "addWindowStateListener", "java.awt.event.WindowStateListener", windowListener);
-            invokeListener(window, "addWindowListener", "java.awt.event.WindowListener", windowListener);
-            Thread.setDefaultUncaughtExceptionHandler(exceptionHandler);
-        }
-
-        void uninstall() {
-            closing = true;
-            cancelSettleTask();
-            settleExecutor.shutdownNow();
-            invokeListener(canvas, "removeComponentListener", "java.awt.event.ComponentListener", componentListener);
-            invokeListener(window, "removeWindowStateListener", "java.awt.event.WindowStateListener", windowListener);
-            invokeListener(window, "removeWindowListener", "java.awt.event.WindowListener", windowListener);
-            if (
-                Thread.getDefaultUncaughtExceptionHandler() ==
-                exceptionHandler
-            ) {
-                Thread.setDefaultUncaughtExceptionHandler(
-                    previousExceptionHandler
-                );
-            }
-        }
-
-        private void beginWindowTransition() {
-            if (closing) return;
-            pauseRendering();
-            scheduleTransitionFinish();
-        }
-
-        private void pauseRendering() {
-            if (closing) return;
-            surface.pauseThread();
-        }
-
-        private void scheduleTransitionFinish() {
-            if (closing) return;
-            cancelSettleTask();
-            settleTask = settleExecutor.schedule(new SettleDispatch(this),
-                SETTLE_DELAY_MS, TimeUnit.MILLISECONDS);
-        }
-
-        private void finishWindowTransition() {
-            if (closing) return;
-            if ((intResult(window, "getExtendedState", 0) & FRAME_ICONIFIED) != 0) return;
-            if (!booleanResult(canvas, "isDisplayable", false)) return;
-
-            if (recoveryPending || surface.isStopped()) {
-                surface.stopThread();
-                surface.startThread();
-            } else {
-                surface.resumeThread();
-            }
-            recoveryPending = false;
-            recoveryDispatchPending = false;
-        }
-
-        private void scheduleRenderRecovery() {
-            if (recoveryDispatchPending) return;
-            recoveryDispatchPending = true;
-            dispatchToAwt(new RecoveryDispatch(this));
-        }
-
-        private static final class ComponentInvocationHandler implements InvocationHandler {
-            private final WindowsResizeGuard guard;
-            ComponentInvocationHandler(WindowsResizeGuard guard) { this.guard = guard; }
-            public Object invoke(Object proxy, Method method, Object[] args) {
-                String name = method.getName();
-                if ("componentResized".equals(name)) guard.beginWindowTransition();
-                else if ("componentHidden".equals(name)) guard.pauseRendering();
-                else if ("componentShown".equals(name)) guard.scheduleTransitionFinish();
-                return null;
-            }
-        }
-
-        private static final class WindowInvocationHandler implements InvocationHandler {
-            private final WindowsResizeGuard guard;
-            WindowInvocationHandler(WindowsResizeGuard guard) { this.guard = guard; }
-            public Object invoke(Object proxy, Method method, Object[] args) {
-                String name = method.getName();
-                if ("windowStateChanged".equals(name) && args != null && args.length > 0) {
-                    int state = intResult(args[0], "getNewState", 0);
-                    if ((state & FRAME_ICONIFIED) != 0) guard.pauseRendering();
-                    else guard.beginWindowTransition();
-                } else if ("windowClosing".equals(name)) {
-                    guard.closing = true;
-                    guard.cancelSettleTask();
-                }
-                return null;
-            }
-        }
-
-        private static final class ResizeExceptionHandler implements Thread.UncaughtExceptionHandler {
-            private final WindowsResizeGuard guard;
-            ResizeExceptionHandler(WindowsResizeGuard guard) { this.guard = guard; }
-            public void uncaughtException(Thread thread, Throwable error) {
-                if (guard.isRecoverableBufferError(thread, error) &&
-                    SimpleUI.windowsResizeGuard == guard) {
-                    guard.scheduleRenderRecovery();
-                    return;
-                }
-                guard.forwardException(thread, error);
-            }
-        }
-
-        private static final class SettleDispatch implements Runnable {
-            private final WindowsResizeGuard guard;
-            SettleDispatch(WindowsResizeGuard guard) { this.guard = guard; }
-            public void run() { dispatchToAwt(new FinishDispatch(guard)); }
-        }
-
-        private static final class FinishDispatch implements Runnable {
-            private final WindowsResizeGuard guard;
-            FinishDispatch(WindowsResizeGuard guard) { this.guard = guard; }
-            public void run() { guard.finishWindowTransition(); }
-        }
-
-        private static final class RecoveryDispatch implements Runnable {
-            private final WindowsResizeGuard guard;
-            RecoveryDispatch(WindowsResizeGuard guard) { this.guard = guard; }
-            public void run() {
-                if (guard.closing) {
-                    guard.recoveryDispatchPending = false;
-                    return;
-                }
-                guard.recoveryPending = true;
-                guard.surface.stopThread();
-                guard.scheduleTransitionFinish();
-            }
-        }
-
-        private void cancelSettleTask() {
-            if (settleTask != null) {
-                settleTask.cancel(false);
-                settleTask = null;
-            }
-        }
-
-        private static void dispatchToAwt(Runnable action) {
-            try {
-                Class<?> eventQueue = Class.forName("java.awt.EventQueue");
-                eventQueue.getMethod("invokeLater", Runnable.class).invoke(null, action);
-            } catch (ReflectiveOperationException | LinkageError failure) {
-                action.run();
-            }
-        }
-
-        private static void invokeListener(Object target, String methodName, String typeName, Object listener) {
-            try {
-                Class<?> type = Class.forName(typeName);
-                target.getClass().getMethod(methodName, type).invoke(target, listener);
-            } catch (ReflectiveOperationException | LinkageError failure) {
-                // The guard is optional; unavailable Desktop integration must not affect the sketch.
-            }
-        }
-
-        private static int intResult(Object target, String methodName, int fallback) {
-            try {
-                Object result = target.getClass().getMethod(methodName).invoke(target);
-                return result instanceof Number ? ((Number)result).intValue() : fallback;
-            } catch (ReflectiveOperationException | LinkageError failure) {
-                return fallback;
-            }
-        }
-
-        private static boolean booleanResult(Object target, String methodName, boolean fallback) {
-            try {
-                Object result = target.getClass().getMethod(methodName).invoke(target);
-                return result instanceof Boolean ? ((Boolean)result).booleanValue() : fallback;
-            } catch (ReflectiveOperationException | LinkageError failure) {
-                return fallback;
-            }
-        }
-
-        private boolean isRecoverableBufferError(
-            Thread thread,
-            Throwable error
-        ) {
-            if (
-                thread == null ||
-                !"Animation Thread".equals(thread.getName())
-            ) return false;
-
-            Throwable current = error;
-            while (current != null) {
-                if (
-                    current instanceof IllegalStateException &&
-                    BUFFER_ERROR.equals(current.getMessage())
-                ) return true;
-                current = current.getCause();
-            }
-            return false;
-        }
-
-        private void forwardException(Thread thread, Throwable error) {
-            if (previousExceptionHandler != null) {
-                previousExceptionHandler.uncaughtException(thread, error);
-            } else {
-                error.printStackTrace();
-            }
+        public void draw() {
+            if (app != null && app.frameCount != lastRenderedFrame) updateAndDrawUI();
         }
     }
 
@@ -413,9 +141,11 @@ public static final String LIBRARY_LICENSE = "MIT";
         return app;
     }
 
-    public static void initUI(PApplet host, String fontName, int baseFontSize) {
+    public static void initUI(PApplet host, String fontName, int baseFontSize, UIScaleMode mode) {
         attach(host);
-        initUI(fontName, baseFontSize);
+        initializeUI(fontName, baseFontSize);
+        setMode(host.width, host.height, mode);
+        installRenderBridge();
     }
 
     public static void syncHostState() {
@@ -446,6 +176,7 @@ public static final String LIBRARY_LICENSE = "MIT";
     public static void popStyle() { app.popStyle(); }
     public static void translate(float x, float y) { app.translate(x, y); }
     public static void scale(float value) { app.scale(value); }
+    public static void scale(float x, float y) { app.scale(x, y); }
     public static void stroke(int value) { app.stroke(value); }
     public static void stroke(int value, float alpha) { app.stroke(value, alpha); }
     public static void stroke(int r, int g, int b) { app.stroke(r, g, b); }
@@ -549,6 +280,8 @@ public static void triggerEvent(UIElement element, String action, Object data) {
 public static ArrayList<UIElement> uiElements = new ArrayList<UIElement>();
 public static PFont uiFont;
 public static float uiScale = 1.0f;
+public static float uiScaleX = 1.0f;
+public static float uiScaleY = 1.0f;
 public static float designWidth = 0;
 public static float designHeight = 0;
 public static float logicalWidth = 0;
@@ -572,7 +305,7 @@ public static String uiModalActionId = "";
 public static Runnable uiModalConfirmAction = null;
 public static Runnable uiModalCancelAction = null;
 
-public static void initUI(String fontName, int baseFontSize) {
+private static void initializeUI(String fontName, int baseFontSize) {
   uiFont = createFont(fontName, baseFontSize, true);
   textFont(uiFont);
   setTheme(UIColorTheme.LIGHT);
@@ -631,18 +364,20 @@ public static void updateViewport() {
   designHeight = Viewport.getDesignHeight();
   logicalWidth = Viewport.getLogicalWidth();
   logicalHeight = Viewport.getLogicalHeight();
-  uiScale = Viewport.getScaleX();
+  uiScaleX = Viewport.getScaleX();
+  uiScaleY = Viewport.getScaleY();
+  uiScale = uiScaleX;
   viewportOffsetX = Viewport.getOffsetX();
   viewportOffsetY = Viewport.getOffsetY();
   scaleMode = UIScaleMode.valueOf(Viewport.getMode().name());
 }
 
 public static float getLogicalWidth() {
-  return modeConfigured ? logicalWidth : width / uiScale;
+  return modeConfigured ? logicalWidth : width / uiScaleX;
 }
 
 public static float getLogicalHeight() {
-  return modeConfigured ? logicalHeight : height / uiScale;
+  return modeConfigured ? logicalHeight : height / uiScaleY;
 }
 
 public static float screenToDesignX(float screenX) {
@@ -696,7 +431,7 @@ public static void drawUI() {
     syncHostState();
   pushMatrix();
   translate(viewportOffsetX, viewportOffsetY + scrollState.currentY);
-  scale(uiScale);
+  scale(uiScaleX, uiScaleY);
 
   for (UIElement e : uiElements) {
     if (!e.isAnchored() && !(e instanceof UIDropdown)) {
@@ -716,7 +451,7 @@ public static void drawUI() {
 
   pushMatrix();
   translate(viewportOffsetX, viewportOffsetY);
-  scale(uiScale);
+  scale(uiScaleX, uiScaleY);
   for (UIElement e : uiElements) {
     if (e.isAnchored() && !(e instanceof UIDropdown)) {
       e.draw();
@@ -814,7 +549,7 @@ public static void drawModalOverlay() {
   pushStyle();
   pushMatrix();
   translate(viewportOffsetX, viewportOffsetY);
-  scale(uiScale);
+  scale(uiScaleX, uiScaleY);
   noStroke();
   fill(0, 150);
   rect(0, 0, designWidth, designHeight);
@@ -891,6 +626,7 @@ public static boolean isPointInModalCancelButton(float mx, float my) {
 }
 
 public static void updateAndDrawUI() {
+  lastRenderedFrame = app == null ? Integer.MIN_VALUE : app.frameCount;
   updateUI();
   drawUI();
 }
@@ -941,11 +677,11 @@ public static boolean isPointInElement(float mx, float my, UIElement element) {
 }
 
 public static float getScaledMouseX() {
-  return (mouseX - viewportOffsetX) / uiScale;
+  return (mouseX - viewportOffsetX) / uiScaleX;
 }
 
 public static float getScaledMouseY() {
-  return (mouseY - viewportOffsetY) / uiScale;
+  return (mouseY - viewportOffsetY) / uiScaleY;
 }
 
 public static boolean passedGestureThreshold() {
@@ -982,9 +718,9 @@ public static void handleUIMouseWheel(float count) {
   if (uiModalVisible) return;
 
   float mx = getScaledMouseX();
-  float myAnchored = (mouseY - viewportOffsetY) / uiScale;
+  float myAnchored = (mouseY - viewportOffsetY) / uiScaleY;
   float myScrolled =
-    (mouseY - viewportOffsetY - scrollState.currentY) / uiScale;
+    (mouseY - viewportOffsetY - scrollState.currentY) / uiScaleY;
   UIElement hit = findTopMostInteractiveElementAt(mx, myAnchored, myScrolled);
   if (!(hit instanceof UITable) || !hit.hasScrollableOverflow()) return;
 
@@ -1107,8 +843,8 @@ public static void handleUIModalMousePressed() {
   gestureState.lastX = mouseX;
   gestureState.lastY = mouseY;
   gestureState.isTapCandidate = true;
-  float mx = (mouseX - viewportOffsetX) / uiScale;
-  float my = (mouseY - viewportOffsetY) / uiScale;
+  float mx = (mouseX - viewportOffsetX) / uiScaleX;
+  float my = (mouseY - viewportOffsetY) / uiScaleY;
   UIElement hit = activeUIModal.findTopMostControlAt(mx, my);
   if (activeTextField != null && activeTextField != hit) {
     activeTextField.setFocused(false);
@@ -1120,8 +856,8 @@ public static void handleUIModalMousePressed() {
 
 public static void handleUIModalMouseReleased() {
   activeUIModal.layout();
-  float mx = (mouseX - viewportOffsetX) / uiScale;
-  float my = (mouseY - viewportOffsetY) / uiScale;
+  float mx = (mouseX - viewportOffsetX) / uiScaleX;
+  float my = (mouseY - viewportOffsetY) / uiScaleY;
   boolean isTap = dist(gestureState.startX, gestureState.startY, mouseX, mouseY) <= SCROLL_DEAD_ZONE;
   if (isTap && gestureState.pressedElement != null) {
     performTapAction(mx, my, my);
@@ -1153,8 +889,8 @@ public static void handleUIMousePressed() {
   gestureState.isTapCandidate = true;
 
   float mx = getScaledMouseX();
-  float myAnchored = (mouseY - viewportOffsetY) / uiScale;
-  float my = (mouseY - viewportOffsetY - scrollState.currentY) / uiScale;
+  float myAnchored = (mouseY - viewportOffsetY) / uiScaleY;
+  float my = (mouseY - viewportOffsetY - scrollState.currentY) / uiScaleY;
 
   UITextInputBase hitText = findTopMostTextFieldAt(mx, my);
   if (activeTextField != null && activeTextField != hitText) {
@@ -1218,14 +954,16 @@ public static void handleUIMouseDragged() {
 public static void handleGlobalScroll() {
   scrollState.targetY += (mouseY - pmouseY);
   float maxContentBottom = calculateMaxContentBottom();
-  float maxScrollUp = min(0, -(maxContentBottom - height + 100));
+  float visibleBottom = height - viewportOffsetY;
+  float maxScrollUp = min(0, visibleBottom - maxContentBottom);
   scrollState.targetY = constrain(scrollState.targetY, maxScrollUp, 0);
 }
 
 public static float calculateMaxContentBottom() {
   float maxBottom = 0;
   for (UIElement e : uiElements) {
-    float elementBottom = (e.y + e.height) * uiScale;
+    if (!e.isVisible || e.isAnchored()) continue;
+    float elementBottom = (e.y + e.height) * uiScaleY;
     if (elementBottom > maxBottom) {
       maxBottom = elementBottom;
     }
@@ -1266,8 +1004,8 @@ public static void handleUIMouseReleased() {
   }
 
   float mx = getScaledMouseX();
-  float myAnchored = (mouseY - viewportOffsetY) / uiScale;
-  float my = (mouseY - viewportOffsetY - scrollState.currentY) / uiScale;
+  float myAnchored = (mouseY - viewportOffsetY) / uiScaleY;
+  float my = (mouseY - viewportOffsetY - scrollState.currentY) / uiScaleY;
 
   if (gestureState.isTapCandidate && !gestureState.passedThreshold) {
     performTapAction(mx, myAnchored, my);

@@ -137,9 +137,10 @@ RUNTIME = r'''
         return app;
     }
 
-    public static void initUI(PApplet host, String fontName, int baseFontSize) {
+    public static void initUI(PApplet host, String fontName, int baseFontSize, UIScaleMode mode) {
         attach(host);
-        initUI(fontName, baseFontSize);
+        initializeUI(fontName, baseFontSize);
+        setMode(host.width, host.height, mode);
     }
 
     public static void syncHostState() {

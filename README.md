@@ -1,6 +1,6 @@
 # SimpleUI for Processing Desktop and Android
 
-Current version: **0.5.7**.
+Current version: **0.7.0**.
 
 Designed and developed by **[Luis López Martínez](https://github.com/LuislopezMartinez)**.
 Distributed under the **MIT License**.
@@ -79,9 +79,12 @@ Desktop initialization:
 ```java
 import simpleui.desktop.*;
 
+void settings() {
+  size(1280, 720, P2D); // Use JAVA2D for the traditional Desktop renderer.
+}
+
 void setup() {
-  SimpleUI.initUI(this, "SansSerif", 18);
-  SimpleUI.setMode(1280, 720);
+  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.FIT);
 }
 ```
 
@@ -90,17 +93,28 @@ Android initialization:
 ```java
 import simpleui.android.*;
 
+void settings() {
+  fullScreen(P2D); // Use fullScreen() for Android2D.
+}
+
 void setup() {
-  SimpleUI.initUI(this, "SansSerif", 18);
+  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
+  // Optional: keep a fixed 1280 x 720 virtual design on a full-screen device.
   SimpleUI.setMode(1280, 720, UIScaleMode.RESPONSIVE);
 }
 ```
 
+The renderer is selected explicitly by Processing before `setup()`. The same
+SimpleUI JAR supports JAVA2D and P2D on Desktop, and Android2D and P2D in
+Android Mode. SimpleUI does not attempt an unreliable runtime renderer switch.
+
 ## Virtual resolution
 
-`setMode(width, height)` defines the logical resolution used to design the
-application. SimpleUI controls and SimpleCore tasks share this viewport. The
-two-argument overload uses `UIScaleMode.FIT`.
+The required `UIScaleMode` passed to `initUI(...)` configures the initial
+logical resolution from the current `width` and `height`. SimpleUI controls and
+SimpleCore tasks share this viewport. `setMode(width, height, mode)` remains
+available for runtime changes or a virtual resolution different from the
+Processing surface; its two-argument overload uses `FIT`.
 
 ```java
 SimpleUI.setMode(1280, 720, UIScaleMode.RESPONSIVE);
@@ -114,28 +128,24 @@ The available modes are:
 - `RESPONSIVE`: preserve the FIT scale but expose surplus host space through
   `getLogicalWidth()` and `getLogicalHeight()` so the application can relayout
   expandable controls.
+- `STRETCH`: fill the complete surface without cropping by using independent X
+  and Y scales. Aspect ratio and visual proportions may be distorted.
 
-Use `FIT` when a game must keep the same composition on every screen. Use
-`RESPONSIVE` when the layout should take advantage of extra width or height.
+Use `FIT` when the complete composition must remain visible, `FILL` when edge
+cropping is acceptable, `RESPONSIVE` when a layout should use surplus space,
+and `STRETCH` only when filling without margins or cropping matters more than
+preserving proportions.
 
 `UISwitch` is available on both platforms for compact boolean choices and
 emits `changed` with a `boolean`. `UITable` displays a proportional vertical
 scrollbar only when its rows overflow; it supports wheel/touch scrolling,
 content dragging, thumb dragging and rail paging.
 
-`initUI(...)` automatically registers the mouse and keyboard event bridge. The
-sketch does not need to declare `mousePressed`, `mouseDragged`, `mouseReleased`,
-`keyPressed` or `keyTyped`. Rendering remains explicit with
-`SimpleUI.updateAndDrawUI()` so the sketch controls layer order.
-
-On Windows Desktop with the default Java2D/AWT renderer, `initUI(...)` also
-installs a resize guard automatically. It briefly pauses rendering while AWT
-recreates the window buffers and recovers only Processing's transient
-`Buffers have not been created` failure. No extra sketch call is required.
-The guard is not installed on Android, Linux, macOS or OpenGL renderers.
-The Desktop-only method `simpleui.desktop.SimpleUI.isWindowsResizeGuardActive()`
-reports whether it is active; that method is not part of
-`simpleui.android.SimpleUI`.
+`initUI(...)` automatically registers input and rendering. The library clears
+the surface with the current theme before the sketch frame and draws the UI
+after it, so a UI-only sketch does not need `draw()`, mouse callbacks or
+keyboard callbacks. Content written in the sketch's own `draw()` remains
+behind the controls automatically.
 
 Applications that need to intercept a key before SimpleUI (for example the
 Android Back key) can install `SimpleUI.setKeyEventInterceptor(...)` and return
@@ -200,6 +210,58 @@ scalex(-1);     // horizontal size, negative values mirror the sprite
 scaley(0.75);   // vertical size
 ```
 
+Tasks provide rotated-box collision checks. `overlap(other)` compares two task
+graphics, while `containsPoint(x, y)` tests a logical point against one task.
+Both account for position, X/Y scale, reflection and angle.
+
+Every Task also owns minimal named timers. They start on first use, return true
+for one frame after the interval, and restart automatically:
+
+```java
+if (timer("shot", 300)) shoot();
+if (timer("direction", 2000)) changeDirection();
+```
+
+`resetTimer(name)` starts an existing or new timer again from the current
+instant. Timer names belong only to their Task and are discarded with it.
+
+## Scenes and camera
+
+Each `Scene` groups Tasks under one 2D camera. New Tasks join the active scene
+automatically; Tasks in inactive scenes remain paused:
+
+```java
+Scene level = core.createScene().activate();
+Player player = new Player();
+new Enemy();
+
+level.camera.setTarget(player);
+level.camera.setDeadZone(280, 170, 240, 160);
+level.camera.setBounds(0, 0, 1800, 900);
+```
+
+The dead zone uses logical screen coordinates. The target moves freely inside
+it; on reaching an edge, the camera offset advances while every Task keeps its
+real world position. Bounds prevent the camera from showing space outside the
+world. `screenToWorldX/Y()` and `worldToScreenX/Y()` convert coordinates when
+custom world interaction is needed. Tasks without a Scene remain global and
+are not displaced by the camera, which is useful for HUD elements.
+
+`Core.points` exposes every active contact as logical `TouchPoint` data on
+Android, and one equivalent point while a Desktop mouse button is held. A Task
+can capture the first contact inside its rotated graphic with `isTouched()`:
+
+```java
+if (isTouched()) {
+  x += point.deltaX;
+  y += point.deltaY;
+}
+```
+
+The captured `point` keeps the same ID until that finger or mouse button is
+released, even if it moves outside the graphic. Each point provides `id`,
+`x/y`, `previousX/previousY`, `deltaX/deltaY`, `area` and `pressure`.
+
 `setScale()` and `setAxisScale()` remain temporarily available for source
 compatibility. New code should use the shorter methods above.
 
@@ -221,16 +283,74 @@ taskCore.setAutomaticRendering(false);
 taskCore.renderTasks();
 ```
 
+## Screen fading
+
+`Core` draws screen transitions automatically after the sketch, tasks and UI.
+Durations use milliseconds, and Processing color alpha is preserved:
+
+```java
+taskCore.fadeOff(color(0), 600); // cover the screen
+
+if (taskCore.isFaded()) {
+  changeScene();
+  taskCore.fadeOn(600);          // reveal the new scene
+}
+```
+
+`fadeOff()` and `fadeOn()` use a default duration of 500 ms. The one-argument
+variants select a duration, while `fadeOff(color, duration)` also selects the
+overlay color. `isFading()` is true only during a transition; `isFaded()` is
+true once the screen has been completely covered.
+
+## Images and fonts
+
+Images and fonts can be loaded individually or by data-folder directory on
+Desktop and Android. Folder results are ordered alphabetically and never
+return `null`:
+
+```java
+PImage player = taskCore.loadImage("images/player.png");
+PImage[] frames = taskCore.loadImages("images/walk");
+
+PFont title = taskCore.loadFont("fonts/title.ttf", 32);
+PFont[] fonts = taskCore.loadFonts("fonts", 18);
+```
+
+Images support PNG, JPG/JPEG, GIF and TGA. Fonts support TTF, OTF and VLW.
+TTF/OTF files are created at the required logical size; VLW files retain their
+prebuilt size. Unsupported or failed files are omitted from folder results.
+
+## Audio
+
+SimpleCore loads MP3, Ogg Vorbis and PCM WAV with the same API on Desktop and
+Android. Desktop decoders are embedded in `SimpleUI.jar`; Android uses its
+native media backend, so sketches do not need another Processing library.
+
+```java
+Sound music = taskCore.loadSound("music/theme.ogg");
+music.setVolume(0.7f).setLoop(true).play();
+
+music.pause();
+music.resume();
+music.setPosition(30_000); // milliseconds
+music.stop();
+```
+
+`loadSounds(folder)` returns supported files in alphabetical order. A failed
+load returns a safe `Sound` with `isLoaded() == false` and a diagnostic from
+`getError()`. `Core.shutdown()` releases every sound automatically; use
+`dispose()` only when a resource should be released earlier.
+
 Existing PDE task subclasses must declare lifecycle overrides as `protected`
 or `public`, because they now extend a class from a Java package. See the
 `DesktopSimpleCore` and `AndroidSimpleCore` examples.
 
 ## Teaching examples
 
-The `examples` directory includes a numbered course of 28 Desktop/Android
+The `examples` directory includes a numbered course of 35 Desktop/Android
 pairs: one sketch for every visual control (including `UISwitch`), practical
-login, modal and view projects, and six SimpleCore exercises covering
-lifecycle, game entities, particles, pointer input, keyboard and text.
+login, modal and view projects, and SimpleCore exercises covering lifecycle,
+game entities, particles, fading, multitouch, drawing, keyboard and text.
 
 Open [`examples/README.md`](examples/README.md) for the complete index and the
 recommended classroom order. Every numbered folder is an independent

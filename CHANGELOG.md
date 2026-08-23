@@ -2,6 +2,65 @@
 
 All notable changes to SimpleUI are documented in this file.
 
+## 0.7.0
+
+- Makes the normal SimpleUI lifecycle fully automatic: `initUI()` clears the
+  frame with the active theme, updates the controls and renders the interface
+  through Processing lifecycle callbacks on Desktop and Android.
+- Removes the need for UI-only sketches to declare `draw()` or call
+  `background()` and `updateAndDrawUI()` manually.
+- Keeps sketch drawing naturally behind the interface and prevents duplicate
+  rendering while older manual calls are being migrated.
+- Enables native Desktop key repetition for text fields, text areas and number
+  fields, including repeated deletion and cursor navigation.
+- Cleans all bundled examples and integration sketches around the minimal
+  initialization contract and updates the complete manual accordingly.
+
+## 0.6.1
+
+- Adds automatic screen transitions through `Core.fadeOff`, `fadeOn`,
+  `isFading` and `isFaded`, with configurable color, alpha and duration.
+- Adds cross-platform `Core.loadImage/loadImages` and `loadFont/loadFonts`
+  resource loading, with deterministic alphabetical folder results and an
+  explicit required size for fonts.
+- Adds unified multitouch through `Core.points`, `TouchPoint` and
+  `Task.isTouched()`, including stable per-Task contact capture and a Desktop
+  mouse fallback.
+- Adds minimal per-Task named intervals through `timer(name, milliseconds)` and
+  `resetTimer(name)`.
+- Adds `Scene` and `Camera`, automatic Task membership in the active scene,
+  inactive-scene pausing, camera targets, configurable dead zones, world bounds
+  and screen/world coordinate conversion.
+
+## 0.6.0
+
+- Adds `Task.tint(color)` to tint a task graphic while preserving its original
+  alpha channel and keeping task opacity independent.
+- Adds rotated-box collision helpers `Task.overlap(task)` and
+  `Task.containsPoint(x, y)`.
+- Adds the cross-platform `Sound` API and `Core.loadSound/loadSounds` for MP3,
+  Ogg Vorbis and PCM WAV, with automatic resource release on shutdown.
+
+- Supports explicit renderer selection from Processing: JAVA2D or P2D on
+  Desktop, and Android2D or P2D in Android Mode.
+- Replaces the previous initialization overloads with the single required
+  `initUI(this, fontName, fontSize, UIScaleMode)` entry point. The initial
+  logical resolution comes directly from `size()` or `fullScreen()`.
+- Keeps `setMode()` for runtime mode changes and virtual resolutions that
+  differ from the physical Processing surface.
+- Adds `STRETCH`, which fills the surface without cropping by applying
+  independent X and Y scales. Drawing, input, scrolling, modals and SimpleCore
+  share the same non-uniform coordinate conversion.
+- Retains `FIT`, `FILL` and `RESPONSIVE`: FIT centers the complete design, FILL
+  preserves aspect ratio and may crop, and RESPONSIVE exposes surplus logical
+  space from the top-left origin.
+- Removes the former Windows JAVA2D/AWT resize guard and renderer-specific
+  initialization complexity.
+- Reworks multiline text, lists, tables and chat overflow geometrically so UI
+  widgets do not retain renderer clipping state while a surface is resized.
+- Adds renderer, STRETCH coordinate, Desktop/Android parity and D8 regression
+  checks, plus a comprehensive Desktop integration sketch.
+
 ## 0.5.7
 
 - Adds automatic SimpleCore keyboard and pointer state with the classroom-friendly

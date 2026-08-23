@@ -14,8 +14,6 @@ public class UITextField extends UITextInputBase {
   public int maxLen = 16;
   public boolean focused = false;
   public boolean uppercase = false;
-  public char lastChar = 0;
-  public int lastCharMs = -99999;
   public boolean useCustomTextColor = false;
   public int customTextColor = color(0);
   public boolean useCustomBorderColor = false;
@@ -184,10 +182,6 @@ public class UITextField extends UITextInputBase {
 
   public void appendPrintableChar(char c) {
     if (c < 32 || c == CODED) return;
-    int now = millis();
-    if (c == lastChar && (now - lastCharMs) < 40) return;
-    lastChar = c;
-    lastCharMs = now;
     String next = textValue.substring(0, cursorPosition) + c + textValue.substring(cursorPosition);
     if (uppercase) next = next.toUpperCase();
     if (next.length() <= maxLen) {

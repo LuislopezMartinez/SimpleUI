@@ -4,5 +4,6 @@ package simplecore;
 public enum ViewportMode {
     FIT,
     FILL,
-    RESPONSIVE
+    RESPONSIVE,
+    STRETCH
 }

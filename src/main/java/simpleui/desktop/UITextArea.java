@@ -20,8 +20,6 @@ public class UITextArea extends UITextInputBase {
   public int maxLen = 512;
   public boolean focused = false;
   public boolean uppercase = false;
-  public char lastChar = 0;
-  public int lastCharMs = -99999;
   public boolean useCustomTextColor = false;
   public int customTextColor = color(0);
   public boolean useCustomBorderColor = false;
@@ -75,31 +73,50 @@ public class UITextArea extends UITextInputBase {
     float contentHeight = lines.size() * lineHeight;
     float minScroll = min(0, visibleHeight - contentHeight);
     internalScrollY = constrain(internalScrollY, minScroll, 0);
-    clip(x + textPadding, y + textPadding, availableWidth, visibleHeight);
+    float contentTop = y + textPadding;
+    float contentBottom = y + height - textPadding;
 
     if (textValue.length() == 0) {
       fill(currentTheme.placeholderColor);
-      text(placeholder, x + textPadding, y + textPadding, availableWidth, visibleHeight);
-      if (shouldDrawCursor()) drawCursorAt(x + textPadding, y + textPadding + internalScrollY);
-      noClip();
+      ArrayList<VisualLine> placeholderLines = visualLinesForText(placeholder, availableWidth);
+      for (int i = 0; i < placeholderLines.size(); i++) {
+        float lineY = contentTop + i * lineHeight;
+        if (isFullyVisibleLine(lineY, contentTop, contentBottom)) {
+          text(placeholderLines.get(i).text, x + textPadding, lineY);
+        }
+      }
+      float cursorY = contentTop + internalScrollY;
+      if (shouldDrawCursor() && isFullyVisibleCursor(cursorY, contentTop, contentBottom)) {
+        drawCursorAt(x + textPadding, cursorY);
+      }
       return;
     }
 
     fill(useCustomTextColor ? customTextColor : currentTheme.textColor);
     for (int i = 0; i < lines.size(); i++) {
-      float lineY = y + textPadding + internalScrollY + i * lineHeight;
-      if (lineY + lineHeight < y + textPadding || lineY > y + height - textPadding) continue;
-      text(lines.get(i).text, x + textPadding, lineY);
+      float lineY = contentTop + internalScrollY + i * lineHeight;
+      if (isFullyVisibleLine(lineY, contentTop, contentBottom)) {
+        text(lines.get(i).text, x + textPadding, lineY);
+      }
     }
     if (shouldDrawCursor()) {
       int lineIndex = cursorLineIndex(lines);
       VisualLine cursorLine = lines.get(lineIndex);
       int column = constrain(cursorPosition - cursorLine.start, 0, cursorLine.text.length());
       float cursorX = x + textPadding + textWidth(cursorLine.text.substring(0, column));
-      float cursorY = y + textPadding + internalScrollY + lineIndex * lineHeight;
-      drawCursorAt(cursorX, cursorY);
+      float cursorY = contentTop + internalScrollY + lineIndex * lineHeight;
+      if (isFullyVisibleCursor(cursorY, contentTop, contentBottom)) {
+        drawCursorAt(cursorX, cursorY);
+      }
     }
-    noClip();
+  }
+
+  private boolean isFullyVisibleLine(float lineY, float contentTop, float contentBottom) {
+    return lineY >= contentTop && lineY + lineHeight <= contentBottom;
+  }
+
+  private boolean isFullyVisibleCursor(float cursorY, float contentTop, float contentBottom) {
+    return cursorY >= contentTop && cursorY + fontSize <= contentBottom;
   }
 
   public void drawCursorAt(float cursorX, float cursorY) {
@@ -140,7 +157,7 @@ public class UITextArea extends UITextInputBase {
     float mx = getScaledMouseX();
     float my = getScaledMouseY();
     if (containsPoint(mx, my)) {
-      internalScrollY += (mouseY - pmouseY) / uiScale;
+      internalScrollY += (mouseY - pmouseY) / uiScaleY;
       internalScrollY = constrain(internalScrollY, minScrollForCurrentContent(), 0);
     }
   }
@@ -192,10 +209,6 @@ public class UITextArea extends UITextInputBase {
 
   public void appendPrintableChar(char c) {
     if ((c < 32 || c == CODED) && c != '\n' && c != '\t') return;
-    int now = millis();
-    if (c == lastChar && (now - lastCharMs) < 40 && c != '\n') return;
-    lastChar = c;
-    lastCharMs = now;
     String next = textValue.substring(0, cursorPosition) + c + textValue.substring(cursorPosition);
     if (uppercase) next = next.toUpperCase();
     if (next.length() <= maxLen) {

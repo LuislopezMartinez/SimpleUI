@@ -1,6 +1,7 @@
 import processing.core.PApplet;
 import simpleui.desktop.*;
 import simplecore.Core;
+import simplecore.Sound;
 
 public class DesktopSmoke extends PApplet {
     UIButton button;
@@ -12,6 +13,7 @@ public class DesktopSmoke extends PApplet {
     UITabs tabs;
     chatArea chat;
     Core taskCore;
+    Sound sound;
 
     public void setup() {
         if (!"Luis lopez martinez".equals(SimpleUI.LIBRARY_AUTHOR)) {
@@ -20,9 +22,10 @@ public class DesktopSmoke extends PApplet {
         if (!"MIT".equals(SimpleUI.LIBRARY_LICENSE)) {
             throw new AssertionError("Unexpected SimpleUI license metadata");
         }
-        SimpleUI.initUI(this, "SansSerif", 16);
-        SimpleUI.isWindowsResizeGuardActive();
+        SimpleUI.initUI(this, "SansSerif", 16, UIScaleMode.FIT);
         taskCore = Core.start(this);
+        sound = taskCore.loadSound("audio/test.mp3");
+        sound.setVolume(0.5f).setLoop(false).pause().resume().stop();
         SimpleUI.setMode(800, 720);
         button = new UIButton("ok", 20, 20, 140, 44, "OK", 16);
         list = new UIList("items", 20, 80, 300, 240, 16);
@@ -50,6 +53,5 @@ public class DesktopSmoke extends PApplet {
 
     public void draw() {
         SimpleUI.syncHostState();
-        SimpleUI.updateAndDrawUI();
     }
 }

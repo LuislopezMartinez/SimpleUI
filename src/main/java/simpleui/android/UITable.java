@@ -132,8 +132,6 @@ public class UITable extends UIElement {
         strokeWeight(1);
         rect(x, y + rowHeight, width, height - rowHeight, 0, 0, BORDER_RADIUS_MEDIUM, BORDER_RADIUS_MEDIUM);
 
-        // Para Android, en lugar de usar clip(), usamos una condici??n manual
-        // para verificar si cada fila est?? dentro del ??rea visible
         textSize(fontSize);
         textAlign(CENTER, CENTER);
 
@@ -145,8 +143,7 @@ public class UITable extends UIElement {
             float rowY = y + rowHeight + (i * rowHeight) + internalScrollY;
             float rowBottom = rowY + rowHeight;
 
-            // Solo dibujar si la fila est?? dentro del ??rea visible
-            if (rowBottom < visibleTop || rowY > visibleBottom) {
+            if (rowBottom <= visibleTop || rowY >= visibleBottom) {
                 continue;
             }
 
@@ -167,13 +164,11 @@ public class UITable extends UIElement {
             float cellX = x;
             fill(i == selectedIndex ? currentTheme.accentColor : currentTheme.textColor);
 
-            // Ajustar posici??n Y para que el texto est?? centrado incluso si est?? parcialmente visible
             float textY = max(rowY + rowHeight * 0.48f, visibleTop + rowHeight * 0.48f);
             textY = min(textY, visibleBottom - rowHeight * 0.52f);
 
             for (int j = 0; j < rowData.length; j++) {
                 float colW = width * columnWidths[j];
-                // Solo dibujar texto si est?? dentro del ??rea visible
                 if (rowY >= visibleTop - rowHeight * 0.5f && rowY <= visibleBottom - rowHeight * 0.5f) {
                     fill(tableCellTextColor(rowData[j], i == selectedIndex));
                     text(rowData[j], cellX + colW / 2, textY);
@@ -187,7 +182,6 @@ public class UITable extends UIElement {
                 line(x, rowBottom, x + width, rowBottom);
             }
         }
-
         // Dibujar cabecera (siempre visible)
         fill(currentTheme.accentColor);
         noStroke();
@@ -245,7 +239,7 @@ public class UITable extends UIElement {
                     );
                 internalScrollY = minimumScroll() * progress;
             } else {
-                internalScrollY += (mouseY - pmouseY) / uiScale;
+                internalScrollY += (mouseY - pmouseY) / uiScaleY;
                 internalScrollY = constrain(internalScrollY, minimumScroll(), 0);
             }
         }

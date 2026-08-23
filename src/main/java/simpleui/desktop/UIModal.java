@@ -94,7 +94,7 @@ public abstract class UIModal {
     pushStyle();
     pushMatrix();
     translate(viewportOffsetX, viewportOffsetY);
-    scale(uiScale);
+    scale(uiScaleX, uiScaleY);
     noStroke();
     fill(0, 150);
     rect(0, 0, designWidth, designHeight);

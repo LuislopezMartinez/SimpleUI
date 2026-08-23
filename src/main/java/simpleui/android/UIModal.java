@@ -95,7 +95,7 @@ public abstract class UIModal {
         float designWidth = getLogicalWidth();
         float availableHeight = getLogicalHeight();
         if (androidKeyboardVisible && androidVisibleBottom > 0) {
-            availableHeight = androidVisibleBottom / uiScale;
+            availableHeight = androidVisibleBottom / uiScaleY;
         }
         screenX = round((designWidth - modalWidth) * 0.5f);
         screenY = round(max(10, (availableHeight - modalHeight) * 0.5f));
@@ -112,7 +112,7 @@ public abstract class UIModal {
         pushStyle();
         pushMatrix();
         translate(viewportOffsetX, viewportOffsetY);
-        scale(uiScale);
+        scale(uiScaleX, uiScaleY);
         noStroke();
         fill(0, 150);
         rect(0, 0, designWidth, designHeight);

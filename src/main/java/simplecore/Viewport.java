@@ -60,8 +60,19 @@ public final class Viewport {
             return;
         }
 
-        float fit = Math.min(surfaceWidth / designWidth, surfaceHeight / designHeight);
-        float fill = Math.max(surfaceWidth / designWidth, surfaceHeight / designHeight);
+        float widthScale = surfaceWidth / designWidth;
+        float heightScale = surfaceHeight / designHeight;
+        if (mode == ViewportMode.STRETCH) {
+            scaleX = Math.max(0.0001f, widthScale);
+            scaleY = Math.max(0.0001f, heightScale);
+            offsetX = offsetY = 0.0f;
+            logicalWidth = designWidth;
+            logicalHeight = designHeight;
+            return;
+        }
+
+        float fit = Math.min(widthScale, heightScale);
+        float fill = Math.max(widthScale, heightScale);
         float scale = Math.max(0.0001f, mode == ViewportMode.FILL ? fill : fit);
         scaleX = scaleY = scale;
         if (mode == ViewportMode.RESPONSIVE) {

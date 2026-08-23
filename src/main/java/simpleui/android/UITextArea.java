@@ -214,7 +214,7 @@ public class UITextArea extends UITextInputBase {
         float mx = getScaledMouseX();
         float my = getScaledMouseY();
         if (containsPoint(mx, my)) {
-            internalScrollY += (mouseY - pmouseY) / uiScale;
+            internalScrollY += (mouseY - pmouseY) / uiScaleY;
             internalScrollY = constrain(internalScrollY, minScrollForCurrentContent(), 0);
         }
     }

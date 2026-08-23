@@ -182,12 +182,18 @@ public class chatArea extends UIElement {
       ChatAreaMessage item = items.get(i);
       float bubbleH = bubbleHeight(item);
       float bubbleX = item.side == RIGHT ? x + width - bubbleW - 12 : x + 12;
-      if (currentY + bubbleH >= y && currentY <= y + height) {
+      if (isBubbleFullyVisible(currentY, bubbleH)) {
         drawBubble(item, bubbleX, currentY, bubbleW, bubbleH);
       }
       currentY += bubbleH + bubbleGap;
     }
     popStyle();
+  }
+
+  private boolean isBubbleFullyVisible(float bubbleY, float bubbleH) {
+    float innerTop = y + 2;
+    float innerBottom = y + height - 2;
+    return bubbleY >= innerTop && bubbleY + bubbleH <= innerBottom;
   }
 
   public void mouseDragged() {
@@ -197,7 +203,7 @@ public class chatArea extends UIElement {
     float my = getScaledMouseY();
     if (!containsPoint(mx, my)) return;
 
-    internalScrollY += (mouseY - pmouseY) / uiScale;
+    internalScrollY += (mouseY - pmouseY) / uiScaleY;
     internalScrollY = constrain(internalScrollY, minScroll(), 0);
   }
 }

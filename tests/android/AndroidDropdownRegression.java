@@ -1,17 +1,25 @@
 import processing.core.PApplet;
+import processing.opengl.PGraphics2D;
 import simpleui.android.SimpleUI;
 import simpleui.android.UIDropdown;
 import simpleui.android.UIElement;
 import simpleui.android.UIEventHandler;
+import simpleui.android.UIScaleMode;
 
 public class AndroidDropdownRegression {
     public static void main(String[] args) {
         PApplet host = new PApplet();
+        host.g = new PGraphics2D();
         host.width = 320;
         host.height = 240;
 
         SimpleUI.setAutomaticEventHandling(false);
         SimpleUI.attach(host);
+        SimpleUI.setMode(200, 100, UIScaleMode.STRETCH);
+        if (Math.abs(SimpleUI.uiScaleX - 1.6f) > 0.001f ||
+            Math.abs(SimpleUI.uiScaleY - 2.4f) > 0.001f) {
+            throw new AssertionError("Android STRETCH must use independent X/Y scales");
+        }
 
         final int[] changes = {0};
         UIDropdown dropdown = new UIDropdown(

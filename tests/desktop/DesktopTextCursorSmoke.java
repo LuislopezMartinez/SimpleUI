@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import processing.core.PApplet;
+import processing.opengl.PGraphics2D;
 import simpleui.desktop.*;
 
 public class DesktopTextCursorSmoke {
@@ -11,6 +12,7 @@ public class DesktopTextCursorSmoke {
 
     public static void main(String[] args) {
         PApplet host = new PApplet();
+        host.g = new PGraphics2D();
         SimpleUI.attach(host);
         UITextField field = new UITextField("field", 0, 0, 100, 24, "", 12);
         field.setFocused(true);

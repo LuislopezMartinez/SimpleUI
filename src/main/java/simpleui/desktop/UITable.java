@@ -191,7 +191,7 @@ public class UITable extends UIElement {
           );
         internalScrollY = minimumScroll() * progress;
       } else {
-        internalScrollY += (mouseY - pmouseY) / uiScale;
+        internalScrollY += (mouseY - pmouseY) / uiScaleY;
         internalScrollY = constrain(internalScrollY, minimumScroll(), 0);
       }
     }

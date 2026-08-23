@@ -181,19 +181,27 @@ public class UIList extends UIElement {
         for (int i = 0; i < drawItems.size(); i++) {
             float rowY = contentTop + internalScrollY + i * rowHeight;
             float rowBottom = rowY + rowHeight;
-            boolean rowInsideContent = rowY >= contentTop && rowBottom <= y + height;
-            if (!rowInsideContent) continue;
+            if (rowBottom <= contentTop || rowY >= y + height) continue;
 
             if (i == selectedIndex) {
                 noStroke();
                 fill(currentTheme.accentColor, 28);
-                rect(x + 1, rowY, width - 2, rowHeight);
+                float drawY = max(rowY, contentTop);
+                float drawHeight = min(rowBottom, y + height) - drawY;
+                if (drawHeight > 0) rect(x + 1, drawY, width - 2, drawHeight);
             }
 
-            fill(rowTextColor);
-            textAlign(LEFT, CENTER);
-            textSize(fontSize);
-            text(truncateToWidth(drawItems.get(i), width - 24), x + 12, rowY + rowHeight * 0.5f);
+            if (rowY >= contentTop - rowHeight * 0.5f && rowY <= y + height - rowHeight * 0.5f) {
+                float textY = constrain(
+                    rowY + rowHeight * 0.5f,
+                    contentTop + rowHeight * 0.5f,
+                    y + height - rowHeight * 0.5f
+                );
+                fill(rowTextColor);
+                textAlign(LEFT, CENTER);
+                textSize(fontSize);
+                text(truncateToWidth(drawItems.get(i), width - 24), x + 12, textY);
+            }
 
             if (i < drawItems.size() - 1 && rowBottom >= contentTop && rowBottom <= y + height) {
                 stroke(borderColor, 80);
@@ -218,7 +226,7 @@ public class UIList extends UIElement {
         float contentTop = y + headerHeight();
         if (!containsPoint(mx, my) || my < contentTop) return;
 
-        internalScrollY += (mouseY - pmouseY) / uiScale;
+        internalScrollY += (mouseY - pmouseY) / uiScaleY;
         internalScrollY = constrain(internalScrollY, minScroll(), 0);
     }
 

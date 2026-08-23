@@ -1,19 +1,33 @@
 import processing.core.PApplet;
 import processing.event.MouseEvent;
+import processing.event.KeyEvent;
+import processing.opengl.PGraphics2D;
 import simpleui.desktop.*;
 import simplecore.Core;
 import simplecore.Viewport;
 
 public class DesktopEventBridgeSmoke {
     private static final class TestApplet extends PApplet {
+        boolean repeatHintReceived;
+        public void hint(int which) {
+            if (which == ENABLE_KEY_REPEAT) {
+                repeatHintReceived = true;
+                keyRepeatEnabled = true;
+            }
+        }
         void dispatch(MouseEvent event) { handleMouseEvent(event); }
+        void dispatch(KeyEvent event) { handleKeyEvent(event); }
     }
 
     public static void main(String[] args) {
         TestApplet host = new TestApplet();
+        host.g = new PGraphics2D();
         host.width = 320;
         host.height = 240;
         SimpleUI.attach(host);
+        if (!host.repeatHintReceived) {
+            throw new AssertionError("SimpleUI must enable native Desktop key repeat");
+        }
         if (!SimpleUI.isEventBridgeInstalled()) {
             throw new AssertionError("Event bridge was not registered");
         }
@@ -41,6 +55,8 @@ public class DesktopEventBridgeSmoke {
         SimpleUI.addUIElement(slider);
         SimpleUI.addUIElement(table);
         SimpleUI.addUIElement(modeSwitch);
+        UITextField repeatField = new UITextField("repeat", 10, 205, 120, 30, "", 14);
+        SimpleUI.addUIElement(repeatField);
         SimpleUI.setUIEventHandler(new UIEventHandler() {
             public void onUIEvent(UIElement element, String action, Object data) {
                 if (element == button && "clicked".equals(action)) clicks[0]++;
@@ -108,6 +124,23 @@ public class DesktopEventBridgeSmoke {
             throw new AssertionError("Disabled switch must ignore taps");
         }
 
+        repeatField.setFocused(true);
+        host.dispatch(new KeyEvent(host, 5, KeyEvent.TYPE, 0, 'a', 'A'));
+        host.dispatch(new KeyEvent(host, 6, KeyEvent.TYPE, 0, 'a', 'A', true));
+        if (!"aa".equals(repeatField.getText())) {
+            throw new AssertionError("Text fields must accept native key-repeat events");
+        }
+
+        SimpleUI.scrollState.currentY = 0;
+        SimpleUI.scrollState.targetY = 0;
+        host.pmouseY = 100;
+        host.mouseY = 0;
+        SimpleUI.syncHostState();
+        SimpleUI.handleGlobalScroll();
+        if (SimpleUI.scrollState.targetY != 0) {
+            throw new AssertionError("A view whose content fits must not scroll");
+        }
+
         host.width = 1600;
         host.height = 1000;
         SimpleUI.syncHostState();
@@ -128,6 +161,20 @@ public class DesktopEventBridgeSmoke {
             Math.abs(SimpleUI.getLogicalHeight() - 800) > 0.001f ||
             Math.abs(SimpleUI.viewportOffsetY) > 0.001f) {
             throw new AssertionError("RESPONSIVE mode logical viewport mismatch");
+        }
+
+        SimpleUI.setMode(1280, 720, UIScaleMode.STRETCH);
+        if (Math.abs(SimpleUI.uiScaleX - 1.25f) > 0.001f ||
+            Math.abs(SimpleUI.uiScaleY - (1000.0f / 720.0f)) > 0.001f ||
+            Math.abs(SimpleUI.viewportOffsetX) > 0.001f ||
+            Math.abs(SimpleUI.viewportOffsetY) > 0.001f) {
+            throw new AssertionError("STRETCH mode must use independent X/Y scales without offsets");
+        }
+        float stretchedX = SimpleUI.designToScreenX(320);
+        float stretchedY = SimpleUI.designToScreenY(180);
+        if (Math.abs(SimpleUI.screenToDesignX(stretchedX) - 320) > 0.001f ||
+            Math.abs(SimpleUI.screenToDesignY(stretchedY) - 180) > 0.001f) {
+            throw new AssertionError("STRETCH coordinate conversion must round-trip");
         }
 
         SimpleUI.setMode(1280, 720, UIScaleMode.FIT);

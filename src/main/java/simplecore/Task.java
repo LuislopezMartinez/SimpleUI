@@ -6,6 +6,7 @@ import processing.core.PFont;
 import processing.core.PImage;
 import processing.data.StringDict;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /** Base class for frame-driven logical or drawable tasks. */
 public class Task {
@@ -51,6 +52,7 @@ public class Task {
 
     private final Core core;
     private final ArrayList<TextCommand> textCommands = new ArrayList<TextCommand>();
+    private final HashMap<String, Integer> timerMarks = new HashMap<String, Integer>();
     boolean destroyed;
 
     public int priority;
@@ -60,9 +62,11 @@ public class Task {
     public int type;
     public final String className;
     public Task father;
+    public Scene scene;
     public int liveFrames;
     public final StringDict properties = new StringDict();
     public final CoreMouse mouse;
+    public TouchPoint point;
 
     public PImage graph;
     public float x;
@@ -80,6 +84,7 @@ public class Task {
         mouse = core.mouse;
         className = getClass().getSimpleName();
         id = core.registerTask(this);
+        core.attachToActiveScene(this);
     }
 
     public final Core getCore() {
@@ -93,6 +98,37 @@ public class Task {
     /** Minimal keyboard query inherited by every Task. */
     public final boolean key(int code) {
         return core.key(code);
+    }
+
+    /** Returns true for one frame whenever this named interval elapses. */
+    public final boolean timer(String name, int milliseconds) {
+        requireTimerArguments(name, milliseconds);
+        int now = core.getParent().millis();
+        Integer mark = timerMarks.get(name);
+        if (mark == null) {
+            timerMarks.put(name, now);
+            return false;
+        }
+        if (now - mark.intValue() < milliseconds) return false;
+        timerMarks.put(name, now);
+        return true;
+    }
+
+    /** Starts this named timer again from the current instant. */
+    public final void resetTimer(String name) {
+        if (name == null || name.length() == 0) {
+            throw new IllegalArgumentException("Timer name must not be empty");
+        }
+        timerMarks.put(name, core.getParent().millis());
+    }
+
+    private static void requireTimerArguments(String name, int milliseconds) {
+        if (name == null || name.length() == 0) {
+            throw new IllegalArgumentException("Timer name must not be empty");
+        }
+        if (milliseconds <= 0) {
+            throw new IllegalArgumentException("Timer duration must be greater than zero");
+        }
     }
 
     public final Task kill() {
@@ -177,9 +213,16 @@ public class Task {
         return this;
     }
 
-    public Task setTint(int newTintColor) {
-        tintColor = newTintColor;
+    /** Tints the task graphic without changing its alpha. */
+    public Task tint(int color) {
+        tintColor = color;
         return this;
+    }
+
+    /** @deprecated Use tint(color). */
+    @Deprecated
+    public Task setTint(int newTintColor) {
+        return tint(newTintColor);
     }
 
     public Task clearTint() {
@@ -230,6 +273,96 @@ public class Task {
         return this;
     }
 
+    /** Returns whether a logical point lies inside this task's rotated graphic box. */
+    public boolean containsPoint(float pointX, float pointY) {
+        if (!hasCollisionBox() || !Float.isFinite(pointX) || !Float.isFinite(pointY)) return false;
+        double radians = Math.toRadians(angle);
+        float cosine = (float)Math.cos(radians);
+        float sine = (float)Math.sin(radians);
+        float deltaX = pointX - x;
+        float deltaY = pointY - y;
+        float localX = deltaX * cosine + deltaY * sine;
+        float localY = -deltaX * sine + deltaY * cosine;
+        float halfWidth = graph.width * Math.abs(getEffectiveScaleX()) * 0.5f;
+        float halfHeight = graph.height * Math.abs(getEffectiveScaleY()) * 0.5f;
+        return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfHeight;
+    }
+
+    /** Captures one active mouse or touch point over this Task until release. */
+    public boolean isTouched() {
+        if (!hasCollisionBox()) {
+            point = null;
+            return false;
+        }
+        if (point != null) {
+            if (core.isActivePoint(point)) return true;
+            point = null;
+        }
+        for (TouchPoint candidate : core.points) {
+            float candidateX = candidate.x;
+            float candidateY = candidate.y;
+            if (scene != null && scene.isActive()) {
+                candidateX = scene.camera.screenToWorldX(candidateX);
+                candidateY = scene.camera.screenToWorldY(candidateY);
+            }
+            if (containsPoint(candidateX, candidateY)) {
+                point = candidate;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Returns whether this task's rotated graphic box overlaps another one. */
+    public boolean overlap(Task target) {
+        if (target == null || !hasCollisionBox() || !target.hasCollisionBox()) return false;
+        double thisRadians = Math.toRadians(angle);
+        double targetRadians = Math.toRadians(target.angle);
+        float thisCosine = (float)Math.cos(thisRadians);
+        float thisSine = (float)Math.sin(thisRadians);
+        float targetCosine = (float)Math.cos(targetRadians);
+        float targetSine = (float)Math.sin(targetRadians);
+        float thisHalfWidth = graph.width * Math.abs(getEffectiveScaleX()) * 0.5f;
+        float thisHalfHeight = graph.height * Math.abs(getEffectiveScaleY()) * 0.5f;
+        float targetHalfWidth = target.graph.width * Math.abs(target.getEffectiveScaleX()) * 0.5f;
+        float targetHalfHeight = target.graph.height * Math.abs(target.getEffectiveScaleY()) * 0.5f;
+        float deltaX = target.x - x;
+        float deltaY = target.y - y;
+
+        return overlapsOnAxis(deltaX, deltaY, thisCosine, thisSine,
+                    thisCosine, thisSine, thisHalfWidth, thisHalfHeight,
+                    targetCosine, targetSine, targetHalfWidth, targetHalfHeight)
+            && overlapsOnAxis(deltaX, deltaY, -thisSine, thisCosine,
+                    thisCosine, thisSine, thisHalfWidth, thisHalfHeight,
+                    targetCosine, targetSine, targetHalfWidth, targetHalfHeight)
+            && overlapsOnAxis(deltaX, deltaY, targetCosine, targetSine,
+                    thisCosine, thisSine, thisHalfWidth, thisHalfHeight,
+                    targetCosine, targetSine, targetHalfWidth, targetHalfHeight)
+            && overlapsOnAxis(deltaX, deltaY, -targetSine, targetCosine,
+                    thisCosine, thisSine, thisHalfWidth, thisHalfHeight,
+                    targetCosine, targetSine, targetHalfWidth, targetHalfHeight);
+    }
+
+    private boolean hasCollisionBox() {
+        return exists() && visible && alpha > 0.0f && graph != null
+            && graph.width > 0 && graph.height > 0
+            && Float.isFinite(x) && Float.isFinite(y) && Float.isFinite(angle)
+            && Float.isFinite(getEffectiveScaleX()) && Float.isFinite(getEffectiveScaleY())
+            && getEffectiveScaleX() != 0.0f && getEffectiveScaleY() != 0.0f;
+    }
+
+    private static boolean overlapsOnAxis(
+            float deltaX, float deltaY, float axisX, float axisY,
+            float firstAxisX, float firstAxisY, float firstHalfWidth, float firstHalfHeight,
+            float secondAxisX, float secondAxisY, float secondHalfWidth, float secondHalfHeight) {
+        float distance = Math.abs(deltaX * axisX + deltaY * axisY);
+        float firstRadius = firstHalfWidth * Math.abs(axisX * firstAxisX + axisY * firstAxisY)
+            + firstHalfHeight * Math.abs(axisX * -firstAxisY + axisY * firstAxisX);
+        float secondRadius = secondHalfWidth * Math.abs(axisX * secondAxisX + axisY * secondAxisY)
+            + secondHalfHeight * Math.abs(axisX * -secondAxisY + axisY * secondAxisX);
+        return distance <= firstRadius + secondRadius;
+    }
+
     public float getEffectiveScaleX() {
         return spriteScaleX;
     }
@@ -243,6 +376,12 @@ public class Task {
     }
 
     final void beginFrame() {
+        textCommands.clear();
+    }
+
+    final void releaseInternalState() {
+        point = null;
+        timerMarks.clear();
         textCommands.clear();
     }
 

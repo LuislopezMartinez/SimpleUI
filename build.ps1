@@ -128,6 +128,8 @@ if ($SkipD8) {
     Write-Warning 'Android D8 was not found; the D8 compatibility check will be skipped.'
 }
 
+$desktopRuntimeClasspath = "$processingDesktopCore;$(Split-Path -Parent $processingDesktopCore)\*"
+
 $generated = Join-Path $projectRoot 'src\main\java'
 $desktopClasses = Join-Path $projectRoot 'build\classes-desktop'
 $androidClasses = Join-Path $projectRoot 'build\classes-android'
@@ -136,8 +138,28 @@ $output = Join-Path $projectRoot 'library\SimpleUI.jar'
 $manifest = Join-Path $projectRoot 'src\main\resources\MANIFEST.MF'
 $testClasses = Join-Path $projectRoot 'build\test-classes'
 $dexOutput = Join-Path $projectRoot 'build\dex-smoke'
+$audioEmbeddedRoot = Join-Path $projectRoot 'build\audio-embedded'
+$audioDependencies = @(
+    (Join-Path $projectRoot 'deps\audio\mp3spi-1.9.5.4.jar'),
+    (Join-Path $projectRoot 'deps\audio\vorbisspi-1.0.3.3.jar'),
+    (Join-Path $projectRoot 'deps\audio\jlayer-1.0.1.4.jar'),
+    (Join-Path $projectRoot 'deps\audio\jorbis-0.0.17.4.jar'),
+    (Join-Path $projectRoot 'deps\audio\tritonus-share-0.3.7.4.jar')
+)
+foreach ($audioDependency in $audioDependencies) {
+    if (-not (Test-Path -LiteralPath $audioDependency -PathType Leaf)) {
+        throw "Missing bundled audio dependency: $audioDependency"
+    }
+}
+$audioClasspath = $audioDependencies -join ';'
 
 Write-Host 'Using the checked-in Java sources as the canonical SimpleUI 0.5+ source set.'
+
+$rendererlessExamples = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'examples') -Recurse -File -Filter '*.pde' |
+    Select-String -Pattern '^\s*(size\([^,()]+,[^,()]+\)|fullScreen\(\))\s*;'
+if ($rendererlessExamples) {
+    throw "Every SimpleUI example must select its renderer explicitly: $rendererlessExamples"
+}
 
 foreach ($classes in @($desktopClasses, $androidClasses, $commonClasses)) {
     if (Test-Path -LiteralPath $classes) {
@@ -149,27 +171,49 @@ New-Item -ItemType Directory -Path (Split-Path -Parent $output) -Force | Out-Nul
 
 $desktopSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simpleui\desktop') -File -Filter '*.java' | ForEach-Object { $_.FullName }
 $androidSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simpleui\android') -File -Filter '*.java' | ForEach-Object { $_.FullName }
-$commonSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simplecore') -File -Filter '*.java' | ForEach-Object { $_.FullName }
+$commonSources = Get-ChildItem -LiteralPath (Join-Path $generated 'simplecore') -Recurse -File -Filter '*.java' | ForEach-Object { $_.FullName }
+$desktopPlatformSources = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src\platform\desktop\java') -Recurse -File -Filter '*.java' | ForEach-Object { $_.FullName }
+$androidPlatformSources = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src\platform\android\java') -Recurse -File -Filter '*.java' | ForEach-Object { $_.FullName }
 
 & $javacExe --release 8 -encoding UTF-8 -classpath $processingDesktopCore -d $commonClasses $commonSources
 if ($LASTEXITCODE -ne 0) { throw "SimpleCore javac failed with exit code $LASTEXITCODE" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$commonClasses" -d $desktopClasses $desktopSources
 if ($LASTEXITCODE -ne 0) { throw "javac failed with exit code $LASTEXITCODE" }
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$commonClasses;$audioClasspath" -d $desktopClasses $desktopPlatformSources
+if ($LASTEXITCODE -ne 0) { throw "Desktop audio javac failed with exit code $LASTEXITCODE" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$commonClasses" -d $androidClasses $androidSources
 if ($LASTEXITCODE -ne 0) { throw "Android javac failed with exit code $LASTEXITCODE" }
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$commonClasses" -d $androidClasses $androidPlatformSources
+if ($LASTEXITCODE -ne 0) { throw "Android audio javac failed with exit code $LASTEXITCODE" }
 
 if (Test-Path -LiteralPath $output) {
     Remove-Item -LiteralPath $output -Force
 }
-& $jarExe --create --file $output --manifest $manifest -C $desktopClasses . -C $androidClasses . -C $commonClasses . -C $projectRoot LICENSE
+& $jarExe --create --file $output --manifest $manifest -C $desktopClasses . -C $androidClasses . -C $commonClasses . -C $projectRoot LICENSE -C $projectRoot THIRD_PARTY_NOTICES.md -C $projectRoot licenses
 if ($LASTEXITCODE -ne 0) { throw "jar failed with exit code $LASTEXITCODE" }
 
-# Processing Android's Android2D renderer throws from noClip() on current
-# Android Canvas implementations. UITextArea must contain its content using
-# geometry instead of invoking the renderer clip state.
+if (Test-Path -LiteralPath $audioEmbeddedRoot) { Remove-Item -LiteralPath $audioEmbeddedRoot -Recurse -Force }
+$embeddedDependencyFolder = Join-Path $audioEmbeddedRoot 'simplecore\audio\deps'
+New-Item -ItemType Directory -Path $embeddedDependencyFolder -Force | Out-Null
+foreach ($audioDependency in $audioDependencies) {
+    Copy-Item -LiteralPath $audioDependency -Destination $embeddedDependencyFolder
+}
+& $jarExe --update --file $output -C $audioEmbeddedRoot simplecore/audio/deps
+if ($LASTEXITCODE -ne 0) { throw 'Could not embed Desktop audio dependency resources' }
+
+# UITextArea contains text geometrically and does not retain renderer clipping
+# state while a resizable surface is being rebuilt.
 $androidTextAreaBytecode = (& $javapExe -classpath $output -c 'simpleui.android.UITextArea') -join "`n"
 if ($androidTextAreaBytecode -match 'simpleui/android/SimpleUI\.(clip|noClip)') {
-    throw 'Android UITextArea must not invoke SimpleUI.clip() or SimpleUI.noClip()'
+    throw 'Android UITextArea must not retain renderer clipping state during surface resize'
+}
+$scrollingWidgetBytecode = @(
+    (& $javapExe -classpath $output -c 'simpleui.desktop.UIList') -join "`n"
+    (& $javapExe -classpath $output -c 'simpleui.android.UIList') -join "`n"
+    (& $javapExe -classpath $output -c 'simpleui.android.UITable') -join "`n"
+) -join "`n"
+if ($scrollingWidgetBytecode -match 'SimpleUI\.(clip|noClip)') {
+    throw 'Scrolling widgets must not retain renderer clipping state during surface resize'
 }
 
 # Every widget/model class must expose the same public constructors and methods
@@ -203,30 +247,42 @@ New-Item -ItemType Directory -Path $testClasses -Force | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Desktop public API smoke test failed" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopEventBridgeSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Desktop event bridge smoke test compilation failed" }
-& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" DesktopEventBridgeSmoke
+& $javaExe -classpath "$desktopRuntimeClasspath;$output;$testClasses" DesktopEventBridgeSmoke
 if ($LASTEXITCODE -ne 0) { throw "Desktop event bridge lifecycle test failed" }
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopRendererSmoke.java')
+if ($LASTEXITCODE -ne 0) { throw "Desktop renderer test compilation failed" }
+& $javaExe -classpath "$desktopRuntimeClasspath;$output;$testClasses" DesktopRendererSmoke
+if ($LASTEXITCODE -ne 0) { throw "Desktop JAVA2D/P2D renderer test failed" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopTextCursorSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Desktop text cursor regression test compilation failed" }
-& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" DesktopTextCursorSmoke
+& $javaExe -classpath "$desktopRuntimeClasspath;$output;$testClasses" DesktopTextCursorSmoke
 if ($LASTEXITCODE -ne 0) { throw "Desktop text cursor regression test failed" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\view-hooks\DesktopUIViewHooksSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Desktop external UIView hook test compilation failed" }
-& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" DesktopUIViewHooksSmoke
+& $javaExe -classpath "$desktopRuntimeClasspath;$output;$testClasses" DesktopUIViewHooksSmoke
 if ($LASTEXITCODE -ne 0) { throw "Desktop external UIView hook test failed" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopCalendarSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Desktop calendar smoke test compilation failed" }
-& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" DesktopCalendarSmoke
+& $javaExe -classpath "$desktopRuntimeClasspath;$output;$testClasses" DesktopCalendarSmoke
 if ($LASTEXITCODE -ne 0) { throw "Desktop calendar model test failed" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\SimpleCoreSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "SimpleCore smoke test compilation failed" }
-& $javaExe -classpath "$processingDesktopCore;$output;$testClasses" SimpleCoreSmoke
+& $javaExe -classpath "$desktopRuntimeClasspath;$output;$testClasses" SimpleCoreSmoke
 if ($LASTEXITCODE -ne 0) { throw "SimpleCore singleton and lifecycle test failed" }
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingDesktopCore;$output" -d $testClasses (Join-Path $projectRoot 'tests\desktop\DesktopAudioSmoke.java')
+if ($LASTEXITCODE -ne 0) { throw "Desktop audio smoke test compilation failed" }
+& $javaExe -classpath "$desktopRuntimeClasspath;$output;$testClasses" DesktopAudioSmoke
+if ($LASTEXITCODE -ne 0) { throw "Desktop MP3/Ogg provider and Sound lifecycle test failed" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Android public API smoke test failed" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidDropdownRegression.java')
 if ($LASTEXITCODE -ne 0) { throw "Android dropdown regression test compilation failed" }
 & $javaExe -classpath "$processingAndroidCore;$androidApi;$output;$testClasses" AndroidDropdownRegression
 if ($LASTEXITCODE -ne 0) { throw "Android dropdown selection regression test failed" }
+& $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\android\AndroidRendererSmoke.java')
+if ($LASTEXITCODE -ne 0) { throw "Android renderer test compilation failed" }
+& $javaExe -classpath "$processingAndroidCore;$androidApi;$output;$testClasses" AndroidRendererSmoke
+if ($LASTEXITCODE -ne 0) { throw "Android traditional/P2D renderer test failed" }
 & $javacExe --release 8 -encoding UTF-8 -classpath "$processingAndroidCore;$androidApi;$output" -d $testClasses (Join-Path $projectRoot 'tests\view-hooks\AndroidUIViewHooksCompileSmoke.java')
 if ($LASTEXITCODE -ne 0) { throw "Android external UIView hook test compilation failed" }
 
@@ -238,4 +294,4 @@ if (-not $SkipD8 -and $d8Jar -and (Test-Path -LiteralPath $d8Jar)) {
 }
 
 Write-Host "Built $output"
-Write-Host 'Desktop/Android parity, UIView hooks, automatic events, dropdown selection, calendar, SimpleCore and D8 checks passed.'
+Write-Host 'Desktop/Android parity, audio, UIView hooks, automatic events, dropdown selection, calendar, SimpleCore and D8 checks passed.'

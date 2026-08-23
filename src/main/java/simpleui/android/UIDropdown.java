@@ -126,8 +126,8 @@ public class UIDropdown extends UIElement {
 
         float pointerX = getScaledMouseX();
         float pointerY = isAnchored()
-            ? (mouseY - viewportOffsetY) / uiScale
-            : (mouseY - viewportOffsetY - scrollState.currentY) / uiScale;
+            ? (mouseY - viewportOffsetY) / uiScaleY
+            : (mouseY - viewportOffsetY - scrollState.currentY) / uiScaleY;
         if (isOpen && gestureState.pressedElement == this && gestureState.isTapCandidate && containsOpenMenu(pointerX, pointerY)) {
             pressedMenuIndex = floor((pointerY - (y + height)) / height);
             if (pressedMenuIndex < 0 || pressedMenuIndex >= options.length) {

@@ -1,6 +1,7 @@
 import processing.core.PApplet;
 import simpleui.android.*;
 import simplecore.Core;
+import simplecore.Sound;
 
 public class AndroidSmoke extends PApplet {
     UIButton button;
@@ -12,6 +13,7 @@ public class AndroidSmoke extends PApplet {
     UITabs tabs;
     chatArea chat;
     Core taskCore;
+    Sound sound;
 
     public void setup() {
         if (!"Luis lopez martinez".equals(SimpleUI.LIBRARY_AUTHOR)) {
@@ -20,8 +22,10 @@ public class AndroidSmoke extends PApplet {
         if (!"MIT".equals(SimpleUI.LIBRARY_LICENSE)) {
             throw new AssertionError("Unexpected SimpleUI license metadata");
         }
-        SimpleUI.initUI(this, "SansSerif", 18);
+        SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
         taskCore = Core.start(this);
+        sound = taskCore.loadSound("audio/test.ogg");
+        sound.setVolume(0.5f).setLoop(false).pause().resume().stop();
         taskCore.setAutomaticRendering(false);
         SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
         button = new UIButton("send", 20, 20, 160, 48, "Send", 18);

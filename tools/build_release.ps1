@@ -86,25 +86,31 @@ if (Test-Path -LiteralPath $releaseRoot) {
 }
 New-Item -ItemType Directory -Path $stageLibrary -Force | Out-Null
 
-foreach ($directory in @('examples', 'library', 'reference', 'src')) {
+foreach ($directory in @('deps', 'examples', 'library', 'reference', 'src')) {
     Copy-Item -LiteralPath (Join-Path $projectRoot $directory) -Destination $stageLibrary -Recurse
 }
 foreach ($file in @(
     'library.properties',
     'LICENSE',
+    'THIRD_PARTY_NOTICES.md',
     'README.md',
-    'CHANGELOG.md'
+    'CHANGELOG.md',
+    'RELEASE_NOTES.md'
 )) {
     Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $stageLibrary
 }
+Copy-Item -LiteralPath (Join-Path $projectRoot 'licenses') -Destination $stageLibrary -Recurse
 
 $zipPath = Join-Path $releaseRoot 'SimpleUI.zip'
 $propertiesReleasePath = Join-Path $releaseRoot 'SimpleUI.txt'
 $pdexPath = Join-Path $releaseRoot 'SimpleUI.pdex'
+$checksumsPath = Join-Path $releaseRoot 'SHA256SUMS.txt'
+$releaseNotesPath = Join-Path $releaseRoot 'RELEASE_NOTES.md'
 
 Compress-Archive -LiteralPath $stageLibrary -DestinationPath $zipPath -CompressionLevel Optimal
 Copy-Item -LiteralPath $propertiesPath -Destination $propertiesReleasePath
 Copy-Item -LiteralPath $zipPath -Destination $pdexPath
+Copy-Item -LiteralPath (Join-Path $projectRoot 'RELEASE_NOTES.md') -Destination $releaseNotesPath
 
 $sourcePropertiesHash = (Get-FileHash -LiteralPath $propertiesPath -Algorithm SHA256).Hash
 $releasePropertiesHash = (Get-FileHash -LiteralPath $propertiesReleasePath -Algorithm SHA256).Hash
@@ -116,6 +122,12 @@ $pdexHash = (Get-FileHash -LiteralPath $pdexPath -Algorithm SHA256).Hash
 if ($zipHash -ne $pdexHash) {
     throw 'SimpleUI.pdex is not byte-identical to SimpleUI.zip.'
 }
+
+@(
+    "$zipHash  SimpleUI.zip",
+    "$pdexHash  SimpleUI.pdex",
+    "$releasePropertiesHash  SimpleUI.txt"
+) | Set-Content -LiteralPath $checksumsPath -Encoding ascii
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [IO.Compression.ZipFile]::OpenRead($zipPath)
@@ -142,6 +154,6 @@ try {
 Remove-Item -LiteralPath $stageRoot -Recurse -Force
 
 Write-Host 'Release artifacts are ready:'
-Get-Item $zipPath, $propertiesReleasePath, $pdexPath |
+Get-Item $zipPath, $propertiesReleasePath, $pdexPath, $checksumsPath, $releaseNotesPath |
     Select-Object Name, Length |
     Format-Table -AutoSize

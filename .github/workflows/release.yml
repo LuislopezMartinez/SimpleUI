@@ -58,8 +58,9 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: release/RELEASE_NOTES.md
           files: |
             release/SimpleUI.zip
             release/SimpleUI.txt
             release/SimpleUI.pdex
+            release/SHA256SUMS.txt

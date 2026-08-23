@@ -151,7 +151,6 @@ public class UIList extends UIElement {
       contentTop += rowHeight;
     }
 
-    clip(x, contentTop, width, y + height - contentTop);
     for (int i = 0; i < items.size(); i++) {
       float rowY = contentTop + internalScrollY + i * rowHeight;
       float rowBottom = rowY + rowHeight;
@@ -163,17 +162,22 @@ public class UIList extends UIElement {
         float drawH = min(rowBottom, y + height) - drawY;
         if (drawH > 0) rect(x + 1, drawY, width - 2, drawH);
       }
-      fill(rowTextColor);
-      textAlign(LEFT, CENTER);
-      textSize(fontSize);
-      text(items.get(i), x + 12, rowY + rowHeight * 0.5f);
+      if (rowY >= contentTop - rowHeight * 0.5f && rowY <= y + height - rowHeight * 0.5f) {
+        float textY = constrain(
+          rowY + rowHeight * 0.5f,
+          contentTop + rowHeight * 0.5f,
+          y + height - rowHeight * 0.5f
+        );
+        fill(rowTextColor);
+        textAlign(LEFT, CENTER);
+        textSize(fontSize);
+        text(truncateToWidth(items.get(i), width - 24), x + 12, textY);
+      }
       if (i < items.size() - 1 && rowBottom >= contentTop && rowBottom <= y + height) {
         stroke(borderColor, 80);
         line(x + 1, rowBottom, x + width - 1, rowBottom);
       }
     }
-    noClip();
-
     noFill();
     stroke(borderColor);
     strokeWeight(2);
@@ -190,7 +194,7 @@ public class UIList extends UIElement {
     float my = getScaledMouseY();
     float contentTop = y + headerHeight();
     if (!containsPoint(mx, my) || my < contentTop) return;
-    internalScrollY += (mouseY - pmouseY) / uiScale;
+    internalScrollY += (mouseY - pmouseY) / uiScaleY;
     internalScrollY = constrain(internalScrollY, minScroll(), 0);
   }
 

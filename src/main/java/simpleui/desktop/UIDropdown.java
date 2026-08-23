@@ -59,8 +59,8 @@ public class UIDropdown extends UIElement {
     pushStyle();
     float hoverMx = getScaledMouseX();
     float hoverMy = isAnchored()
-      ? (mouseY - viewportOffsetY) / uiScale
-      : (mouseY - viewportOffsetY - scrollState.currentY) / uiScale;
+      ? (mouseY - viewportOffsetY) / uiScaleY
+      : (mouseY - viewportOffsetY - scrollState.currentY) / uiScaleY;
     int hoveredIndex = -1;
     if (isOpen && containsOpenMenu(hoverMx, hoverMy)) {
       hoveredIndex = floor((hoverMy - (y + height)) / height);

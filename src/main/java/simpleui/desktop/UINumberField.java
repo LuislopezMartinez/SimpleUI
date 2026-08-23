@@ -20,8 +20,6 @@ public class UINumberField extends UITextInputBase {
   public int customBorderColor = color(0);
   public Float minValue = null;
   public Float maxValue = null;
-  public char lastChar = 0;
-  public int lastCharMs = -99999;
 
   public UINumberField(String id, int x, int y, int w, int h, String placeholder, int fontSize) {
     super(id, x, y, w, h);
@@ -151,10 +149,6 @@ public class UINumberField extends UITextInputBase {
   public void appendPrintableChar(char c) {
     if (c == CODED) return;
     if (!isAllowedChar(c)) return;
-    int now = millis();
-    if (c == lastChar && (now - lastCharMs) < 40) return;
-    lastChar = c;
-    lastCharMs = now;
     String next = textValue + c;
     String sanitized = sanitizeNumericText(next);
     if (sanitized.equals(textValue)) return;

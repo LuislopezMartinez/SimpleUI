@@ -62,3 +62,5 @@ jobs:
             release/SimpleUI.zip
             release/SimpleUI.txt
             release/SimpleUI.pdex
+            release/SHA256SUMS.txt
+            release/RELEASE_NOTES.md
