@@ -4,13 +4,11 @@ UITabs sectionTabs;
 UILabel contentLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 18,IScaleMode.RESPONSIVE);
 
   String[] sections = { "Inicio", "Curso", "Ayuda" };
   sectionTabs = new UITabs("sections", 25, 85, 350, 52, sections, 16);

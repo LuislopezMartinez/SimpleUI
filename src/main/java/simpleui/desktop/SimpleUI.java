@@ -23,6 +23,9 @@ public static final String LIBRARY_LICENSE = "MIT";
     private static int lastRenderedFrame = Integer.MIN_VALUE;
     private static boolean automaticEventHandling = true;
     private static KeyEventInterceptor keyEventInterceptor;
+    private static PApplet videoModeHost;
+    private static int videoModeWidth;
+    private static int videoModeHeight;
 
     private SimpleUI() {}
 
@@ -141,11 +144,36 @@ public static final String LIBRARY_LICENSE = "MIT";
         return app;
     }
 
+    /**
+     * Selects the Desktop surface and stores its logical design resolution.
+     * Call this once from the sketch's settings() method.
+     */
+    public static void setVideoMode(PApplet host, int width, int height, String renderer) {
+        validateVideoMode(host, width, height, renderer);
+        videoModeHost = host;
+        videoModeWidth = width;
+        videoModeHeight = height;
+        host.size(width, height, renderer);
+    }
+
+    private static void validateVideoMode(PApplet host, int width, int height, String renderer) {
+        if (host == null) throw new IllegalArgumentException("SimpleUI requires a PApplet host");
+        if (width <= 0 || height <= 0) throw new IllegalArgumentException("Video mode dimensions must be greater than zero");
+        if (renderer == null || renderer.trim().isEmpty()) throw new IllegalArgumentException("Video mode requires an explicit renderer");
+    }
+
     public static void initUI(PApplet host, String fontName, int baseFontSize, UIScaleMode mode) {
+        requireVideoMode(host);
         attach(host);
         initializeUI(fontName, baseFontSize);
-        setMode(host.width, host.height, mode);
+        setMode(videoModeWidth, videoModeHeight, mode);
         installRenderBridge();
+    }
+
+    private static void requireVideoMode(PApplet host) {
+        if (videoModeHost != host) {
+            throw new IllegalStateException("Call SimpleUI.setVideoMode(this, width, height, renderer) from settings() before initUI()");
+        }
     }
 
     public static void syncHostState() {

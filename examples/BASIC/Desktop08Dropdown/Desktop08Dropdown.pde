@@ -4,7 +4,7 @@ UIDropdown colorMenu;
 UILabel resultLabel;
 
 void settings() {
-  size(400, 320, P2D);
+  SimpleUI.setVideoMode(this, 400, 320, P2D);
 }
 
 void setup() {

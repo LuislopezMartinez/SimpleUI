@@ -4,7 +4,7 @@ UIList lessonList;
 UILabel selectedLabel;
 
 void settings() {
-  size(400, 460, P2D);
+  SimpleUI.setVideoMode(this, 400, 460, P2D);
 }
 
 void setup() {

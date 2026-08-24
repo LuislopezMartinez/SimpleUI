@@ -4,13 +4,11 @@ UISlider volumeSlider;
 UILabel valueLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 18,IScaleMode.RESPONSIVE);
 
   volumeSlider = new UISlider("volume", 50, 110, 300, 40, 0, 100, 35, 16);
   valueLabel = new UILabel("value", 50, 180, 300, 44, "Volumen: 35", 18);

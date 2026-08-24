@@ -4,7 +4,7 @@ UISignalMeter signalMeter;
 UISlider rssiSlider;
 
 void settings() {
-  size(440, 350, P2D);
+  SimpleUI.setVideoMode(this, 440, 350, P2D);
 }
 
 void setup() {

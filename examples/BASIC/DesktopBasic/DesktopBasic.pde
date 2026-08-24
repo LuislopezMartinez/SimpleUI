@@ -4,7 +4,7 @@ UIButton helloButton;
 UILabel statusLabel;
 
 void settings() {
-  size(640, 420, P2D);
+  SimpleUI.setVideoMode(this, 640, 420, P2D);
 }
 
 void setup() {

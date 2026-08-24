@@ -5,7 +5,7 @@ UIButton toggleButton;
 boolean connected = false;
 
 void settings() {
-  size(400, 280, P2D);
+  SimpleUI.setVideoMode(this, 400, 280, P2D);
 }
 
 void setup() {

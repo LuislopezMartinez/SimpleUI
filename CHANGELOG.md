@@ -2,6 +2,31 @@
 
 All notable changes to SimpleUI are documented in this file.
 
+## 0.7.2
+
+- Adds the unified `setVideoMode(this, width, height, renderer)` call to
+  `settings()` on Desktop and Android. Desktop creates the requested window;
+  Android uses a full-screen surface with the requested logical resolution
+  and infers its orientation from that resolution.
+- Migrates every SimpleUI example and integration sketch to the unified
+  initialization contract, removing Android's redundant initial `setMode()`.
+- Adds the equivalent `Core.setVideoMode(...)` and
+  `Core.start(this, ViewportMode)` contract for SimpleCore-only sketches and
+  aligns all 26 Desktop/Android examples.
+- Adds the required Android Mode metadata to all 39 bundled Android examples,
+  so Processing selects Android Mode automatically when opening them.
+- Adds a build-time validation that rejects any Android example without a
+  valid root `sketch.properties` mode declaration.
+- Fixes `Desktop31CoreFingerDraw` so drawing uses its own per-pointer history
+  instead of frame-sensitive deltas and remains stable across window resizing.
+- Makes `Core.points` structurally safe across Android's input and GL threads,
+  preventing `ConcurrentModificationException` during multitouch rendering.
+- Changes `Task.isTouched()` to return false as soon as its active contact
+  leaves the rotated graphic, with automatic detection again on re-entry.
+- Serializes structural Task registration, sorting, removal and rendering
+  across Android input and GL threads, allowing large particle bursts from UI
+  callbacks without `ConcurrentModificationException`.
+
 ## 0.7.0
 
 - Makes the normal SimpleUI lifecycle fully automatic: `initUI()` clears the

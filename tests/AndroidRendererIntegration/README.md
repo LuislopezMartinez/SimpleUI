@@ -1,6 +1,6 @@
 # AndroidRendererIntegration
 
-Prueba manual integral de SimpleUI 0.7.0 en Processing Android Mode con P2D.
+Prueba manual integral de SimpleUI 0.7.2 en Processing Android Mode con P2D.
 La carpeta ya contiene `code/SimpleUI.jar` y los sonidos necesarios en `data`.
 
 ## Ejecución

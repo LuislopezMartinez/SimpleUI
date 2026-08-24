@@ -15,6 +15,10 @@ public class DesktopSmoke extends PApplet {
     Core taskCore;
     Sound sound;
 
+    public void settings() {
+        SimpleUI.setVideoMode(this, 800, 720, P2D);
+    }
+
     public void setup() {
         if (!"Luis lopez martinez".equals(SimpleUI.LIBRARY_AUTHOR)) {
             throw new AssertionError("Unexpected SimpleUI author metadata");

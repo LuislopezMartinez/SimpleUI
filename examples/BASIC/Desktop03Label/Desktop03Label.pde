@@ -4,7 +4,7 @@ UILabel title;
 int secondsShown = -1;
 
 void settings() {
-  size(400, 240, P2D);
+  SimpleUI.setVideoMode(this, 400, 240, P2D);
 }
 
 void setup() {

@@ -4,13 +4,11 @@ Core core;
 PFont font;
 
 void settings() {
-  fullScreen(P2D);
+  Core.setVideoMode(this, 400, 700, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  core = Core.start(this);
-  core.setMode(400, 700, ViewportMode.FIT);
+  core = Core.start(this, ViewportMode.FIT);
   font = createFont("SansSerif", 18);
 }
 

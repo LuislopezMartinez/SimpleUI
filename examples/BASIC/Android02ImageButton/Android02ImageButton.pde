@@ -4,13 +4,11 @@ UIImageButton playButton;
 UILabel stateLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 18,IScaleMode.RESPONSIVE);
 
   PImage playIcon = createPlayIcon(72);
   playButton = new UIImageButton("play", 150, 90, 100, 100, playIcon, 72, 72);

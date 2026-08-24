@@ -7,12 +7,11 @@ AudioDemo demo;
 PFont font;
 
 void settings() {
-  size(640, 480, P2D);
+  Core.setVideoMode(this, 640, 480, P2D);
 }
 
 void setup() {
-  core = Core.start(this);
-  core.setMode(640, 480, ViewportMode.FIT);
+  core = Core.start(this, ViewportMode.FIT);
   font = createFont("SansSerif", 20);
   music = core.loadSound("2013_15.ogg");
   effect = core.loadSound("error.wav");

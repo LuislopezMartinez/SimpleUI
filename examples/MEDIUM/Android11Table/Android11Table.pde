@@ -4,13 +4,11 @@ UITable gradeTable;
 UILabel selectedLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 520, 800, P2D);
 }
 
 void setup() {
-  orientation(LANDSCAPE);
-  SimpleUI.initUI(this, "SansSerif", 17, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(520, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 17,IScaleMode.RESPONSIVE);
 
   String[] headers = { "Alumno", "Proyecto", "Nota" };
   float[] widths = { 0.40, 0.38, 0.22 };

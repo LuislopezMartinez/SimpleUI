@@ -4,13 +4,11 @@ UISignalMeter signalMeter;
 UISlider rssiSlider;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 17, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 17,IScaleMode.RESPONSIVE);
 
   signalMeter = new UISignalMeter("signal", 25, 75, 350, 110, "Enlace LoRa");
   signalMeter.setRssi(-90);

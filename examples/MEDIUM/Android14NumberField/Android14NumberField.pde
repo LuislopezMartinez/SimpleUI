@@ -4,13 +4,11 @@ UINumberField ageField;
 UILabel resultLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 18,IScaleMode.RESPONSIVE);
 
   ageField = new UINumberField("age", 80, 95, 240, 52, "Edad: 0 a 120", 17);
   ageField.setAllowDecimal(false);

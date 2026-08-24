@@ -7,16 +7,14 @@ UILabel helpLabel;
 PImage particleImage;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
   taskCore = Core.start(this);
   particleImage = createCircleImage(16, color(255));
 
   SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
   celebrateButton = new UIButton("celebrate", 80, 330, 240, 60, "Crear particulas", 18);
   helpLabel = new UILabel("help", 40, 65, 320, 48, "Cada particula es una Task", 18);
   helpLabel.setTextAlignment(CENTER, CENTER);

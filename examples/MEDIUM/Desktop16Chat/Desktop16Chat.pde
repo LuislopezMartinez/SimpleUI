@@ -3,7 +3,7 @@ import simpleui.desktop.*;
 chatArea classroomChat;
 
 void settings() {
-  size(440, 540, P2D);
+  SimpleUI.setVideoMode(this, 440, 540, P2D);
 }
 
 void setup() {

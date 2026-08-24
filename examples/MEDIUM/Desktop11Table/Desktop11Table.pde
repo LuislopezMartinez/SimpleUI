@@ -4,7 +4,7 @@ UITable gradeTable;
 UILabel selectedLabel;
 
 void settings() {
-  size(520, 430, P2D);
+  SimpleUI.setVideoMode(this, 520, 430, P2D);
 }
 
 void setup() {

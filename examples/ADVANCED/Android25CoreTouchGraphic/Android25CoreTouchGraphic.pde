@@ -6,13 +6,11 @@ PImage diamondImage;
 PFont gameFont;
 
 void settings() {
-  fullScreen(P2D);
+  Core.setVideoMode(this, 400, 700, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  taskCore = Core.start(this);
-  taskCore.setMode(400, 700, ViewportMode.FIT);
+  taskCore = Core.start(this, ViewportMode.FIT);
   diamondImage = createDiamondImage(90, color(255, 205, 55));
   gameFont = createFont("SansSerif", 18);
   diamond = new InteractiveDiamond(200, 350);

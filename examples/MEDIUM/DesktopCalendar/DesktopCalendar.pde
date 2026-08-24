@@ -4,7 +4,7 @@ UICalendar calendar;
 UILabel selectionLabel;
 
 void settings() {
-  size(720, 520, P2D);
+  SimpleUI.setVideoMode(this, 720, 520, P2D);
 }
 
 void setup() {

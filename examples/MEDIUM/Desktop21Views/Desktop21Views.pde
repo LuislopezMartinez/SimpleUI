@@ -6,7 +6,7 @@ CourseScreen courseScreen;
 UIButton navigationButton;
 
 void settings() {
-  size(460, 360, P2D);
+  SimpleUI.setVideoMode(this, 460, 360, P2D);
 }
 
 void setup() {

@@ -7,7 +7,7 @@ UILabel status;
 chatArea chat;
 
 void settings() {
-  size(400, 700, P2D);
+  SimpleUI.setVideoMode(this, 400, 700, P2D);
 }
 
 void setup() {

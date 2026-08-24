@@ -1,6 +1,6 @@
 # SimpleUI for Processing Desktop and Android
 
-Current version: **0.7.0**.
+Current version: **0.7.2**.
 
 Designed and developed by **[Luis López Martínez](https://github.com/LuislopezMartinez)**.
 Distributed under the **MIT License**.
@@ -80,7 +80,7 @@ Desktop initialization:
 import simpleui.desktop.*;
 
 void settings() {
-  size(1280, 720, P2D); // Use JAVA2D for the traditional Desktop renderer.
+  SimpleUI.setVideoMode(this, 1280, 720, P2D); // JAVA2D is also available.
 }
 
 void setup() {
@@ -94,27 +94,28 @@ Android initialization:
 import simpleui.android.*;
 
 void settings() {
-  fullScreen(P2D); // Use fullScreen() for Android2D.
+  SimpleUI.setVideoMode(this, 1280, 720, P2D); // Android uses full screen internally.
 }
 
 void setup() {
   SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  // Optional: keep a fixed 1280 x 720 virtual design on a full-screen device.
-  SimpleUI.setMode(1280, 720, UIScaleMode.RESPONSIVE);
 }
 ```
 
-The renderer is selected explicitly by Processing before `setup()`. The same
-SimpleUI JAR supports JAVA2D and P2D on Desktop, and Android2D and P2D in
-Android Mode. SimpleUI does not attempt an unreliable runtime renderer switch.
+`setVideoMode(this, width, height, renderer)` is the same call on both
+platforms. On Desktop it creates a window of that size. On Android it opens a
+full-screen surface and uses the supplied dimensions as the logical design
+resolution. Android also infers portrait or landscape orientation from those
+dimensions. The same SimpleUI JAR supports JAVA2D and P2D on Desktop, and
+Android2D and P2D in Android Mode. SimpleUI does not attempt an unreliable
+runtime renderer switch.
 
 ## Virtual resolution
 
-The required `UIScaleMode` passed to `initUI(...)` configures the initial
-logical resolution from the current `width` and `height`. SimpleUI controls and
-SimpleCore tasks share this viewport. `setMode(width, height, mode)` remains
-available for runtime changes or a virtual resolution different from the
-Processing surface; its two-argument overload uses `FIT`.
+The required `UIScaleMode` passed to `initUI(...)` applies to the logical
+resolution stored by `setVideoMode(...)`. SimpleUI controls and SimpleCore
+tasks share this viewport. `setMode(width, height, mode)` remains available for
+runtime changes; its two-argument overload uses `FIT`.
 
 ```java
 SimpleUI.setMode(1280, 720, UIScaleMode.RESPONSIVE);
@@ -172,9 +173,12 @@ import simplecore.*;
 
 Core taskCore;
 
+void settings() {
+  Core.setVideoMode(this, 400, 700, P2D);
+}
+
 void setup() {
-  taskCore = Core.start(this);
-  taskCore.setMode(400, 700, ViewportMode.FIT);
+  taskCore = Core.start(this, ViewportMode.FIT);
   new MyTask();
 }
 
@@ -199,8 +203,10 @@ Every `Task` can use `key(_A)` through `key(_Z)`, arrows and common control
 keys. `mouse.x` and `mouse.y` are logical viewport coordinates;
 `mouse.left`, `mouse.right` and `mouse.center` report held buttons.
 
-When SimpleUI is present, its `SimpleUI.setMode(...)` call also configures
-SimpleCore. A game using only SimpleCore calls `taskCore.setMode(...)`.
+When SimpleUI is present, `initUI(...)` configures the shared viewport and
+SimpleCore starts with `Core.start(this)`. A SimpleCore-only sketch uses
+`Core.setVideoMode(...)` in `settings()` and
+`Core.start(this, ViewportMode)` in `setup()`.
 
 Sprite size is intentionally concise inside a `Task`:
 
@@ -249,18 +255,20 @@ are not displaced by the camera, which is useful for HUD elements.
 
 `Core.points` exposes every active contact as logical `TouchPoint` data on
 Android, and one equivalent point while a Desktop mouse button is held. A Task
-can capture the first contact inside its rotated graphic with `isTouched()`:
+can expose the first contact currently inside its rotated graphic with
+`isTouched()`:
 
 ```java
 if (isTouched()) {
-  x += point.deltaX;
-  y += point.deltaY;
+  x = point.x;
+  y = point.y;
 }
 ```
 
-The captured `point` keeps the same ID until that finger or mouse button is
-released, even if it moves outside the graphic. Each point provides `id`,
-`x/y`, `previousX/previousY`, `deltaX/deltaY`, `area` and `pressure`.
+`isTouched()` becomes false and clears `point` immediately when the contact
+leaves the rotated graphic, even if the finger remains on screen. It becomes
+true again on re-entry. Each point provides `id`, `x/y`,
+`previousX/previousY`, `deltaX/deltaY`, `area` and `pressure`.
 
 `setScale()` and `setAxisScale()` remain temporarily available for source
 compatibility. New code should use the shorter methods above.
@@ -271,8 +279,8 @@ Text is drawn in logical coordinates and participates in the Task render order:
 text(font, 24, "Score: 100", LEFT, 20, 35, color(255), 255);
 ```
 
-`Core` is a strict singleton. Repeating `Core.start(this)` returns the existing
-instance; attempting to start it with another `PApplet` throws an exception.
+`Core` is a strict singleton. Repeating either `Core.start(...)` form returns
+the existing instance; attempting to start it with another `PApplet` throws an exception.
 `Core.shutdown()` unregisters Processing callbacks, invokes `onDestroy()` once
 for every task, clears all state and permits a clean restart.
 

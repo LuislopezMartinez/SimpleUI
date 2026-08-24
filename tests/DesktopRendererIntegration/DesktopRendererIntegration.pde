@@ -52,7 +52,7 @@ float progressValue = 0.35;
 boolean indicatorOn = true;
 
 void settings() {
-  size(1280, 820, P2D);
+  SimpleUI.setVideoMode(this, 1280, 820, P2D);
 }
 
 void setup() {
@@ -65,7 +65,7 @@ void setup() {
 
   panel = new UIPanel("panel", 18, 18, 1244, 784);
   statusLabel = new UILabel("status", 38, 30, 720, 38,
-    "SimpleUI 0.7.0 · integración Desktop", 20);
+    "SimpleUI 0.7.2 · integración Desktop", 20);
   indicator = new UIIndicator("indicator", 1190, 31, 28);
   updateIndicator();
 
@@ -104,10 +104,10 @@ void setup() {
 
   textArea = new UITextArea("area", 768, 330, 412, 205,
     "Área de texto multilínea con clipping OpenGL...", 14);
-  textArea.setText("Prueba de UITextArea en SimpleUI 0.7.0.\n\nRedimensiona la ventana, desplaza listas, escribe texto y abre el modal.\n\nEl contenido debe permanecer dentro de sus controles.");
+  textArea.setText("Prueba de UITextArea en SimpleUI 0.7.2.\n\nRedimensiona la ventana, desplaza listas, escribe texto y abre el modal.\n\nEl contenido debe permanecer dentro de sus controles.");
 
   chat = new chatArea("chat", 38, 565, 400, 205);
-  chat.addMessage(LEFT, "SimpleUI 0.7.0 iniciado", "ahora", true);
+  chat.addMessage(LEFT, "SimpleUI 0.7.2 iniciado", "ahora", true);
   chat.addMessage(RIGHT, "Eventos y transparencias activos", "ahora", true);
 
   UIDate today = SimpleUI.getUIToday();

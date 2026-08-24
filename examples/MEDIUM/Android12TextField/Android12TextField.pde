@@ -4,13 +4,11 @@ UITextField nameField;
 UILabel greetingLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 18,IScaleMode.RESPONSIVE);
 
   nameField = new UITextField("name", 60, 100, 280, 52, "Escribe tu nombre", 17);
   nameField.setMaxLen(24);

@@ -5,13 +5,11 @@ PImage ballImage;
 PFont gameFont;
 
 void settings() {
-  fullScreen(P2D);
+  Core.setVideoMode(this, 400, 700, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  taskCore = Core.start(this);
-  taskCore.setMode(400, 700, ViewportMode.FIT);
+  taskCore = Core.start(this, ViewportMode.FIT);
   ballImage = createCircleImage(34, color(255, 190, 55));
   gameFont = createFont("SansSerif", 18);
   new GameText();

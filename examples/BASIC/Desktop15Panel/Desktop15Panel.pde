@@ -5,7 +5,7 @@ UILabel titleLabel;
 UILabel detailLabel;
 
 void settings() {
-  size(440, 340, P2D);
+  SimpleUI.setVideoMode(this, 440, 340, P2D);
 }
 
 void setup() {

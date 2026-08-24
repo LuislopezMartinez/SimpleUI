@@ -4,7 +4,7 @@ UICheckbox soundCheckbox;
 UILabel resultLabel;
 
 void settings() {
-  size(400, 260, P2D);
+  SimpleUI.setVideoMode(this, 400, 260, P2D);
 }
 
 void setup() {

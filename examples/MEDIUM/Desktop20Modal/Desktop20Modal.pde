@@ -4,7 +4,7 @@ UIButton deleteButton;
 UILabel resultLabel;
 
 void settings() {
-  size(460, 320, P2D);
+  SimpleUI.setVideoMode(this, 460, 320, P2D);
 }
 
 void setup() {

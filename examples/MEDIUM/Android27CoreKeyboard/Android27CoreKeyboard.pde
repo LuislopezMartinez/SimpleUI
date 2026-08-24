@@ -5,13 +5,11 @@ PImage playerImage;
 PFont gameFont;
 
 void settings() {
-  fullScreen(P2D);
+  Core.setVideoMode(this, 400, 700, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  taskCore = Core.start(this);
-  taskCore.setMode(400, 700, ViewportMode.FIT);
+  taskCore = Core.start(this, ViewportMode.FIT);
   playerImage = createPlayerImage(44, color(70, 180, 255));
   gameFont = createFont("SansSerif", 18);
   new Player();

@@ -4,6 +4,10 @@ import simplecore.Core;
 import simplecore.Sound;
 
 public class AndroidSmoke extends PApplet {
+    public void settings() {
+        SimpleUI.setVideoMode(this, 400, 800, P2D);
+    }
+
     UIButton button;
     UITextField field;
     UIViewManager views;

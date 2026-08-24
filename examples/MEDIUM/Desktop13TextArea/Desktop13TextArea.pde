@@ -4,7 +4,7 @@ UITextArea notesArea;
 UILabel counterLabel;
 
 void settings() {
-  size(440, 420, P2D);
+  SimpleUI.setVideoMode(this, 440, 420, P2D);
 }
 
 void setup() {

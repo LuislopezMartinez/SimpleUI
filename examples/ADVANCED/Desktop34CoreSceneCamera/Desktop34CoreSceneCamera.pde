@@ -6,13 +6,12 @@ Player player;
 PFont font;
 
 void settings() {
-  size(800, 500, P2D);
+  Core.setVideoMode(this, 800, 500, P2D);
 }
 
 void setup() {
-  core = Core.start(this);
-  core.setAutomaticRendering(false);
-  core.setMode(800, 500, ViewportMode.FIT);
+  core = Core.start(this, ViewportMode.FIT);
+setMode(800, 500, ViewportMode.FIT);
   font = createFont("SansSerif", 18);
 
   level = core.createScene().activate();

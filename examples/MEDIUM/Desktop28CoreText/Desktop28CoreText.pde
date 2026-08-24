@@ -4,12 +4,11 @@ Core taskCore;
 PFont gameFont;
 
 void settings() {
-  size(560, 700, P2D);
+  Core.setVideoMode(this, 400, 700, P2D);
 }
 
 void setup() {
-  taskCore = Core.start(this);
-  taskCore.setMode(400, 700, ViewportMode.FIT);
+  taskCore = Core.start(this, ViewportMode.FIT);
   gameFont = createFont("SansSerif", 24);
   new TextExample();
 }

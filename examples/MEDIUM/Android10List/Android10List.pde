@@ -4,13 +4,11 @@ UIList lessonList;
 UILabel selectedLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 17, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 17,IScaleMode.RESPONSIVE);
 
   lessonList = new UIList("lessons", 45, 65, 310, 300, 16);
   lessonList.setTitle("Lecciones");

@@ -288,29 +288,33 @@ public class Task {
         return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfHeight;
     }
 
-    /** Captures one active mouse or touch point over this Task until release. */
+    /** Returns whether an active mouse or touch point is currently inside this Task. */
     public boolean isTouched() {
         if (!hasCollisionBox()) {
             point = null;
             return false;
         }
         if (point != null) {
-            if (core.isActivePoint(point)) return true;
+            if (core.isActivePoint(point) && containsTouchPoint(point)) return true;
             point = null;
         }
         for (TouchPoint candidate : core.points) {
-            float candidateX = candidate.x;
-            float candidateY = candidate.y;
-            if (scene != null && scene.isActive()) {
-                candidateX = scene.camera.screenToWorldX(candidateX);
-                candidateY = scene.camera.screenToWorldY(candidateY);
-            }
-            if (containsPoint(candidateX, candidateY)) {
+            if (containsTouchPoint(candidate)) {
                 point = candidate;
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean containsTouchPoint(TouchPoint candidate) {
+        float candidateX = candidate.x;
+        float candidateY = candidate.y;
+        if (scene != null && scene.isActive()) {
+            candidateX = scene.camera.screenToWorldX(candidateX);
+            candidateY = scene.camera.screenToWorldY(candidateY);
+        }
+        return containsPoint(candidateX, candidateY);
     }
 
     /** Returns whether this task's rotated graphic box overlaps another one. */

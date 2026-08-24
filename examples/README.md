@@ -2,8 +2,9 @@
 
 Esta coleccion esta pensada para aprender por comparacion. Cada ejemplo Desktop
 tiene una version Android equivalente con la misma idea, los mismos nombres y la
-misma API. La diferencia principal es el `import`, el tamano de la ventana y la
-adaptacion a pantalla completa.
+misma API. La unica diferencia necesaria en la inicializacion es el `import`;
+Android adapta internamente el modo de video a pantalla completa y deduce la
+orientacion a partir de la resolucion logica.
 
 Los sketches estan agrupados por dificultad. Dentro de cada nivel se conservan
 juntas las versiones Desktop y Android:
@@ -28,8 +29,10 @@ la proporcion y puede recortar, `RESPONSIVE` aprovecha espacio adicional desde
 la esquina superior izquierda y `STRETCH` llena sin recortar mediante escalas X/Y
 independientes.
 
-El renderer se elige en `settings()`: Desktop admite `JAVA2D` o `P2D`, mientras
-Android Mode admite Android2D o `P2D`. La inicializacion usa la unica firma
+El renderer y la resolucion logica se eligen en `settings()` mediante
+`SimpleUI.setVideoMode(this, ancho, alto, renderer)`: Desktop admite `JAVA2D` o
+`P2D`, mientras Android Mode admite Android2D o `P2D`. En `setup()` se completa
+la inicializacion con
 `SimpleUI.initUI(this, fuente, tamano, UIScaleMode)`.
 
 ## Indice de controles
@@ -68,6 +71,22 @@ El login es una demostracion de interfaz. El campo de clave no esta enmascarado 
 no debe usarse como sistema de autenticacion real.
 
 ## SimpleCore
+
+Los ejemplos que utilizan exclusivamente SimpleCore comparten exactamente la
+misma inicializacion en Desktop y Android:
+
+```java
+void settings() {
+  Core.setVideoMode(this, 400, 700, P2D);
+}
+
+void setup() {
+  core = Core.start(this, ViewportMode.FIT);
+}
+```
+
+Desktop crea la ventana solicitada. Android utiliza pantalla completa y deduce
+la orientacion a partir de la resolucion logica.
 
 | Numero | Desktop | Android | Aprendizaje |
 |---:|---|---|---|

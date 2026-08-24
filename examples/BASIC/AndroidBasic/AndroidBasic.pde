@@ -5,13 +5,11 @@ UIButton helloButton;
 UILabel statusLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 18 UIScaleMode.RESPONSIVE);
 
   nameField = new UITextField("name", 30, 70, 340, 52, "Your name", 18);
   helloButton = new UIButton("hello", 30, 145, 180, 52, "Hello", 18);

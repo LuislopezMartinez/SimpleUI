@@ -4,7 +4,7 @@ UIButton greetButton;
 UILabel messageLabel;
 
 void settings() {
-  size(400, 260, P2D);
+  SimpleUI.setVideoMode(this, 400, 260, P2D);
 }
 
 void setup() {

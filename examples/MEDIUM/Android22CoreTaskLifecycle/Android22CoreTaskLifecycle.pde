@@ -4,12 +4,11 @@ Core taskCore;
 String taskState = "Preparando tarea...";
 
 void settings() {
-  fullScreen(P2D);
+  Core.setVideoMode(this, 540, 320, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  taskCore = Core.start(this);
+  taskCore = Core.start(this, ViewportMode.FIT);
   new CountdownTask(5);
 }
 

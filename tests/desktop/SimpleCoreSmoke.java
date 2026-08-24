@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import processing.core.PApplet;
 import processing.core.PConstants;
 import processing.core.PImage;
@@ -10,10 +11,16 @@ import processing.opengl.PGraphics2D;
 import simplecore.Core;
 import simplecore.Scene;
 import simplecore.Task;
+import simplecore.TouchPoint;
 import simplecore.Viewport;
 import simplecore.ViewportMode;
 
 public class SimpleCoreSmoke {
+    private static void compileVideoModeApi(PApplet app) {
+        Core.setVideoMode(app, 400, 700, PConstants.P2D);
+        Core.start(app, ViewportMode.FIT);
+    }
+
     private static final class ClockApplet extends PApplet {
         int now;
         public int millis() { return now; }
@@ -133,6 +140,54 @@ public class SimpleCoreSmoke {
         core.mouseEvent(new MouseEvent(null, 0, MouseEvent.RELEASE, 0, 0, 0, PConstants.LEFT, 1));
         check(!core.key(Task._A) && !core.mouse.left, "Released input must be cleared");
 
+        final AtomicReference<Throwable> inputFailure = new AtomicReference<Throwable>();
+        Thread inputThread = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    for (int index = 0; index < 2000; index++) {
+                        core.mouseEvent(new MouseEvent(null, index, MouseEvent.PRESS, 0,
+                            index % 320, index % 240, PConstants.LEFT, 1));
+                        core.mouseEvent(new MouseEvent(null, index, MouseEvent.RELEASE, 0,
+                            index % 320, index % 240, PConstants.LEFT, 1));
+                    }
+                } catch (Throwable failure) {
+                    inputFailure.set(failure);
+                }
+            }
+        });
+        inputThread.start();
+        for (int index = 0; index < 2000; index++) {
+            core.draw();
+            for (TouchPoint ignored : core.points) { }
+        }
+        try { inputThread.join(); }
+        catch (InterruptedException failure) { throw new AssertionError(failure); }
+        check(inputFailure.get() == null,
+            "Concurrent pointer updates must not fail while Core draws");
+
+        final AtomicReference<Throwable> taskFailure = new AtomicReference<Throwable>();
+        final ArrayList<Task> concurrentTasks = new ArrayList<Task>();
+        Thread taskThread = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    for (int index = 0; index < 500; index++) {
+                        concurrentTasks.add(new Task());
+                    }
+                } catch (Throwable failure) {
+                    taskFailure.set(failure);
+                }
+            }
+        });
+        taskThread.start();
+        for (int index = 0; index < 100; index++) core.pre();
+        try { taskThread.join(); }
+        catch (InterruptedException failure) { throw new AssertionError(failure); }
+        core.pre();
+        check(taskFailure.get() == null && concurrentTasks.size() == 500,
+            "Concurrent Task creation must not fail while Core updates");
+        for (Task task : concurrentTasks) core.signal(task, Core.SIGNAL_KILL);
+        core.pre();
+
         boolean rejectedSecondHost = false;
         try { Core.start(p2dHost()); }
         catch (IllegalStateException expected) { rejectedSecondHost = true; }
@@ -175,9 +230,13 @@ public class SimpleCoreSmoke {
         core.mouseEvent(new MouseEvent(null, 0, MouseEvent.PRESS, 0, 250, 150, PConstants.LEFT, 1));
         check(core.points.size() == 1 && low.isTouched() && low.point == core.points.get(0),
             "isTouched must capture the active point inside a rotated Task");
+        core.mouseEvent(new MouseEvent(null, 0, MouseEvent.DRAG, 0, 253, 150, PConstants.LEFT, 1));
+        check(low.isTouched(), "isTouched must remain true while the point stays inside");
         core.mouseEvent(new MouseEvent(null, 0, MouseEvent.DRAG, 0, 265, 150, PConstants.LEFT, 1));
-        check(low.isTouched() && Math.abs(low.point.deltaX - 10.0f) < 0.001f,
-            "A captured point must remain attached and expose logical movement");
+        check(!low.isTouched() && low.point == null,
+            "isTouched must become false immediately when the active point leaves");
+        core.mouseEvent(new MouseEvent(null, 0, MouseEvent.DRAG, 0, 250, 150, PConstants.LEFT, 1));
+        check(low.isTouched(), "isTouched must become true again when the point re-enters");
         core.mouseEvent(new MouseEvent(null, 0, MouseEvent.RELEASE, 0, 265, 150, PConstants.LEFT, 1));
         check(core.points.isEmpty() && !low.isTouched() && low.point == null,
             "A released point must clear Task capture");

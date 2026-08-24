@@ -161,6 +161,58 @@ if ($rendererlessExamples) {
     throw "Every SimpleUI example must select its renderer explicitly: $rendererlessExamples"
 }
 
+$simpleUIExamplesWithoutVideoMode = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'examples') -Recurse -File -Filter '*.pde' |
+    Where-Object {
+        (Select-String -LiteralPath $_.FullName -Pattern 'SimpleUI\.initUI\(' -Quiet) -and
+        -not (Select-String -LiteralPath $_.FullName -Pattern 'SimpleUI\.setVideoMode\(this\s*,\s*\d+\s*,\s*\d+\s*,\s*[^)]+\)' -Quiet)
+    }
+if ($simpleUIExamplesWithoutVideoMode) {
+    throw "Every SimpleUI example must initialize video through SimpleUI.setVideoMode(...): $simpleUIExamplesWithoutVideoMode"
+}
+$simpleUIExamplesWithLegacySetup = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'examples') -Recurse -File -Filter '*.pde' |
+    Where-Object {
+        (Select-String -LiteralPath $_.FullName -Pattern 'SimpleUI\.initUI\(' -Quiet) -and
+        (Select-String -LiteralPath $_.FullName -Pattern '^\s*(size|fullScreen|orientation)\(' -Quiet)
+    }
+if ($simpleUIExamplesWithLegacySetup) {
+    throw "SimpleUI examples must not duplicate surface or orientation setup outside setVideoMode(...): $simpleUIExamplesWithLegacySetup"
+}
+
+$simpleCoreOnlyExamples = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'examples') -Recurse -File -Filter '*.pde' |
+    Where-Object {
+        (Select-String -LiteralPath $_.FullName -Pattern 'Core\.start\(' -Quiet) -and
+        -not (Select-String -LiteralPath $_.FullName -Pattern 'SimpleUI\.initUI\(' -Quiet)
+    }
+$invalidSimpleCoreExamples = $simpleCoreOnlyExamples | Where-Object {
+    -not (Select-String -LiteralPath $_.FullName -Pattern 'Core\.setVideoMode\(this\s*,\s*\d+\s*,\s*\d+\s*,\s*[^)]+\)' -Quiet) -or
+    -not (Select-String -LiteralPath $_.FullName -Pattern 'Core\.start\(this\s*,\s*ViewportMode\.[A-Z]+\)' -Quiet) -or
+    (Select-String -LiteralPath $_.FullName -Pattern '^\s*(size|fullScreen|orientation)\(' -Quiet)
+}
+if ($invalidSimpleCoreExamples) {
+    throw "Every SimpleCore-only example must use the unified Core video initialization: $invalidSimpleCoreExamples"
+}
+
+$androidExampleFolders = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'examples') -Recurse -Directory |
+    Where-Object {
+        $_.Name -like 'Android*' -and
+        (Test-Path -LiteralPath (Join-Path $_.FullName ($_.Name + '.pde')) -PathType Leaf)
+    }
+$invalidAndroidExamples = foreach ($folder in $androidExampleFolders) {
+    $sketchProperties = Join-Path $folder.FullName 'sketch.properties'
+    if (-not (Test-Path -LiteralPath $sketchProperties -PathType Leaf)) {
+        $folder.FullName
+        continue
+    }
+    $propertiesText = Get-Content -LiteralPath $sketchProperties -Raw
+    if ($propertiesText -notmatch '(?m)^mode=Android\s*$' -or
+        $propertiesText -notmatch '(?m)^mode\.id=processing\.mode\.android\.AndroidMode\s*$') {
+        $sketchProperties
+    }
+}
+if ($invalidAndroidExamples) {
+    throw "Every Android example must select Android Mode in sketch.properties: $invalidAndroidExamples"
+}
+
 foreach ($classes in @($desktopClasses, $androidClasses, $commonClasses)) {
     if (Test-Path -LiteralPath $classes) {
         Remove-Item -LiteralPath $classes -Recurse -Force

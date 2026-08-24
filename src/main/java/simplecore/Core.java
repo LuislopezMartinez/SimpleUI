@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.HashSet;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.io.File;
 import java.lang.reflect.Constructor;
 import processing.core.PApplet;
@@ -49,14 +50,21 @@ public final class Core {
     };
 
     private static Core instance;
+    private static PApplet videoModeHost;
+    private static int videoModeWidth;
+    private static int videoModeHeight;
 
     private final PApplet parent;
+    private final Object taskLock = new Object();
     private final ArrayList<Task> tasks = new ArrayList<Task>();
     private final ArrayList<Task> pendingTasks = new ArrayList<Task>();
     private final ArrayList<Task> drawableTasks = new ArrayList<Task>();
     private final ArrayList<Scene> scenes = new ArrayList<Scene>();
     private final ArrayList<Sound> sounds = new ArrayList<Sound>();
-    private final ArrayList<TouchPoint> activePoints = new ArrayList<TouchPoint>();
+    // Input callbacks and P2D drawing can run on different Android threads.
+    // Snapshot iterators prevent structural changes from crashing GLThread.
+    private final CopyOnWriteArrayList<TouchPoint> activePoints =
+        new CopyOnWriteArrayList<TouchPoint>();
     public final java.util.List<TouchPoint> points = Collections.unmodifiableList(activePoints);
     private final HashSet<Integer> pressedKeys = new HashSet<Integer>();
     public final CoreMouse mouse = new CoreMouse();
@@ -87,6 +95,32 @@ public final class Core {
         parent.registerMethod("mouseEvent", this);
         if (androidRuntime) parent.registerMethod("touchEvent", this);
         parent.registerMethod("dispose", this);
+    }
+
+    /** Selects the surface and logical resolution for a SimpleCore-only sketch. */
+    public static void setVideoMode(PApplet parent, int width, int height, String renderer) {
+        if (parent == null) throw new IllegalArgumentException("Core requires a PApplet host");
+        if (width <= 0 || height <= 0) throw new IllegalArgumentException("Video mode dimensions must be greater than zero");
+        if (renderer == null || renderer.trim().isEmpty()) throw new IllegalArgumentException("Video mode requires an explicit renderer");
+        videoModeHost = parent;
+        videoModeWidth = width;
+        videoModeHeight = height;
+        if (detectAndroidRuntime(parent)) parent.fullScreen(renderer);
+        else parent.size(width, height, renderer);
+    }
+
+    /** Starts a SimpleCore-only sketch using the video mode selected in settings(). */
+    public static synchronized Core start(PApplet parent, ViewportMode mode) {
+        if (videoModeHost != parent) {
+            throw new IllegalStateException("Call Core.setVideoMode(this, width, height, renderer) from settings() before Core.start(this, mode)");
+        }
+        if (mode == null) throw new IllegalArgumentException("Viewport mode is required");
+        if (detectAndroidRuntime(parent)) {
+            parent.orientation(videoModeWidth > videoModeHeight ? PConstants.LANDSCAPE : PConstants.PORTRAIT);
+        }
+        Core core = start(parent);
+        core.setMode(videoModeWidth, videoModeHeight, mode);
+        return core;
     }
 
     public static synchronized Core start(PApplet parent) {
@@ -543,19 +577,25 @@ public final class Core {
     }
 
     public int getTaskCount() {
-        return tasks.size() + pendingTasks.size();
+        synchronized (taskLock) {
+            return tasks.size() + pendingTasks.size();
+        }
     }
 
     public ArrayList<Task> getTasksSnapshot() {
-        ArrayList<Task> result = new ArrayList<Task>(tasks);
-        result.addAll(pendingTasks);
-        return result;
+        synchronized (taskLock) {
+            ArrayList<Task> result = new ArrayList<Task>(tasks);
+            result.addAll(pendingTasks);
+            return result;
+        }
     }
 
     public Task getTaskById(int id) {
-        for (Task task : tasks) if (task.id == id) return task;
-        for (Task task : pendingTasks) if (task.id == id) return task;
-        return null;
+        synchronized (taskLock) {
+            for (Task task : tasks) if (task.id == id) return task;
+            for (Task task : pendingTasks) if (task.id == id) return task;
+            return null;
+        }
     }
 
     public static boolean exists(Task task) {
@@ -597,11 +637,13 @@ public final class Core {
     }
 
     int registerTask(Task task) {
-        if (shuttingDown) throw new IllegalStateException("Cannot create tasks while Core is shutting down");
-        int id = generateTaskId();
-        if (updating) pendingTasks.add(task);
-        else tasks.add(task);
-        return id;
+        synchronized (taskLock) {
+            if (shuttingDown) throw new IllegalStateException("Cannot create tasks while Core is shutting down");
+            int id = generateTaskId();
+            if (updating) pendingTasks.add(task);
+            else tasks.add(task);
+            return id;
+        }
     }
 
     private int generateTaskId() {
@@ -623,44 +665,46 @@ public final class Core {
         Viewport.update();
         updateFade();
         if (!parent.focused) clearInput();
-        Collections.sort(tasks, PRIORITY_ORDER);
-        updating = true;
-        try {
-            for (int index = 0; index < tasks.size();) {
-                Task task = tasks.get(index);
-                caller = task;
-                if (!task.live) {
-                    destroyTaskAt(index);
-                    continue;
-                }
-                if (task.scene != null && task.scene != activeScene) {
-                    index++;
-                    continue;
-                }
-                task.beginFrame();
-                if (task.liveFrames == 0) {
-                    task.initialize();
+        synchronized (taskLock) {
+            Collections.sort(tasks, PRIORITY_ORDER);
+            updating = true;
+            try {
+                for (int index = 0; index < tasks.size();) {
+                    Task task = tasks.get(index);
+                    caller = task;
                     if (!task.live) {
                         destroyTaskAt(index);
                         continue;
                     }
+                    if (task.scene != null && task.scene != activeScene) {
+                        index++;
+                        continue;
+                    }
+                    task.beginFrame();
+                    if (task.liveFrames == 0) {
+                        task.initialize();
+                        if (!task.live) {
+                            destroyTaskAt(index);
+                            continue;
+                        }
+                    }
+                    task.liveFrames++;
+                    task.frame();
+                    if (!task.live) {
+                        destroyTaskAt(index);
+                        continue;
+                    }
+                    index++;
                 }
-                task.liveFrames++;
-                task.frame();
-                if (!task.live) {
-                    destroyTaskAt(index);
-                    continue;
+            } finally {
+                caller = null;
+                updating = false;
+                if (!pendingTasks.isEmpty()) {
+                    tasks.addAll(pendingTasks);
+                    pendingTasks.clear();
                 }
-                index++;
+                if (activeScene != null) activeScene.camera.update();
             }
-        } finally {
-            caller = null;
-            updating = false;
-            if (!pendingTasks.isEmpty()) {
-                tasks.addAll(pendingTasks);
-                pendingTasks.clear();
-            }
-            if (activeScene != null) activeScene.camera.update();
         }
     }
 
@@ -681,33 +725,35 @@ public final class Core {
 
     public void renderTasks() {
         if (shuttingDown) return;
-        drawableTasks.clear();
-        for (Task task : tasks) {
-            if (task.isDrawable() && (task.scene == null || task.scene == activeScene)) {
-                drawableTasks.add(task);
-            }
-        }
-        Collections.sort(drawableTasks, Z_ORDER);
-        parent.pushMatrix();
-        parent.translate(Viewport.getOffsetX(), Viewport.getOffsetY());
-        parent.scale(Viewport.getScaleX(), Viewport.getScaleY());
-        try {
-            for (Task task : drawableTasks) {
-                if (!task.isDrawable()) continue;
-                parent.pushMatrix();
-                try {
-                    if (task.scene != null) {
-                        parent.translate(-task.scene.camera.x, -task.scene.camera.y);
-                    }
-                    task.render();
-                    task.renderText();
-                } finally {
-                    parent.popMatrix();
+        synchronized (taskLock) {
+            drawableTasks.clear();
+            for (Task task : tasks) {
+                if (task.isDrawable() && (task.scene == null || task.scene == activeScene)) {
+                    drawableTasks.add(task);
                 }
             }
-        } finally {
-            parent.popMatrix();
-            drawableTasks.clear();
+            Collections.sort(drawableTasks, Z_ORDER);
+            parent.pushMatrix();
+            parent.translate(Viewport.getOffsetX(), Viewport.getOffsetY());
+            parent.scale(Viewport.getScaleX(), Viewport.getScaleY());
+            try {
+                for (Task task : drawableTasks) {
+                    if (!task.isDrawable()) continue;
+                    parent.pushMatrix();
+                    try {
+                        if (task.scene != null) {
+                            parent.translate(-task.scene.camera.x, -task.scene.camera.y);
+                        }
+                        task.render();
+                        task.renderText();
+                    } finally {
+                        parent.popMatrix();
+                    }
+                }
+            } finally {
+                parent.popMatrix();
+                drawableTasks.clear();
+            }
         }
     }
 
@@ -755,8 +801,11 @@ public final class Core {
 
         RuntimeException firstFailure = null;
         IdentityHashMap<Task, Boolean> seen = new IdentityHashMap<Task, Boolean>();
-        ArrayList<Task> allTasks = new ArrayList<Task>(tasks);
-        allTasks.addAll(pendingTasks);
+        ArrayList<Task> allTasks;
+        synchronized (taskLock) {
+            allTasks = new ArrayList<Task>(tasks);
+            allTasks.addAll(pendingTasks);
+        }
         for (Task task : allTasks) {
             if (seen.put(task, Boolean.TRUE) != null) continue;
             try {
@@ -767,9 +816,11 @@ public final class Core {
             }
         }
 
-        tasks.clear();
-        pendingTasks.clear();
-        drawableTasks.clear();
+        synchronized (taskLock) {
+            tasks.clear();
+            pendingTasks.clear();
+            drawableTasks.clear();
+        }
         for (Scene scene : new ArrayList<Scene>(scenes)) scene.clearInternal();
         scenes.clear();
         activeScene = null;

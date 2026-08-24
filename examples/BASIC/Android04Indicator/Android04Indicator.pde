@@ -5,13 +5,11 @@ UIButton toggleButton;
 boolean connected = false;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 18,IScaleMode.RESPONSIVE);
 
   statusLight = new UIIndicator("status", 174, 70, 52);
   toggleButton = new UIButton("toggle", 80, 165, 240, 56, "Conectar", 18);

@@ -4,7 +4,7 @@ UISwitch signalSwitch;
 UILabel resultLabel;
 
 void settings() {
-  size(440, 280, P2D);
+  SimpleUI.setVideoMode(this, 440, 280, P2D);
 }
 
 void setup() {

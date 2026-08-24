@@ -5,7 +5,7 @@ UIButton addButton;
 float progress = 0;
 
 void settings() {
-  size(400, 290, P2D);
+  SimpleUI.setVideoMode(this, 400, 290, P2D);
 }
 
 void setup() {

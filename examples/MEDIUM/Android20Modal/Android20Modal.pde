@@ -4,13 +4,11 @@ UIButton deleteButton;
 UILabel resultLabel;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 18, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 18,IScaleMode.RESPONSIVE);
 
   deleteButton = new UIButton("delete", 70, 105, 260, 58, "Borrar proyecto", 18);
   resultLabel = new UILabel("result", 40, 205, 320, 52, "El proyecto sigue guardado", 16);

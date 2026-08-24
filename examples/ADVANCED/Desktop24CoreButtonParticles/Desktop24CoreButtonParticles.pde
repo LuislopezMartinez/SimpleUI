@@ -7,7 +7,7 @@ UILabel helpLabel;
 PImage particleImage;
 
 void settings() {
-  size(500, 420, P2D);
+  SimpleUI.setVideoMode(this, 500, 420, P2D);
 }
 
 void setup() {

@@ -4,7 +4,7 @@ UITabs sectionTabs;
 UILabel contentLabel;
 
 void settings() {
-  size(400, 300, P2D);
+  SimpleUI.setVideoMode(this, 400, 300, P2D);
 }
 
 void setup() {

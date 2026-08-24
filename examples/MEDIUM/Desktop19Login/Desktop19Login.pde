@@ -8,7 +8,7 @@ UIButton loginButton;
 UILabel resultLabel;
 
 void settings() {
-  size(460, 500, P2D);
+  SimpleUI.setVideoMode(this, 460, 500, P2D);
 }
 
 void setup() {

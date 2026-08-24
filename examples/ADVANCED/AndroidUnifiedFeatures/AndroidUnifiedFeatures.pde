@@ -7,13 +7,11 @@ UILabel status;
 chatArea chat;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
   SimpleUI.initUI(this, "SansSerif", 16, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
   signal = new UISignalMeter("signal", 25, 35, 350, 85, "LoRa");
   signal.setRssi(-92);
   level = new UISlider("level", 25, 170, 350, 32, 0, 100, 50, 16);

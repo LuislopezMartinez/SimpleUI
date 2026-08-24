@@ -53,13 +53,11 @@ UICalendar calendar;
 int lastAudioRefresh;
 
 void settings() {
-  fullScreen(P2D);
+  SimpleUI.setVideoMode(this, 400, 800, P2D);
 }
 
 void setup() {
-  orientation(PORTRAIT);
-  SimpleUI.initUI(this, "SansSerif", 16, UIScaleMode.RESPONSIVE);
-  SimpleUI.setMode(400, 800, UIScaleMode.RESPONSIVE);
+  SimpleUI.initUI(this, "SansSerif", 16,IScaleMode.RESPONSIVE);
 
   taskCore = Core.start(this);
   taskCore.setAutomaticRendering(false);
@@ -69,7 +67,7 @@ void setup() {
   errorSound = taskCore.loadSound("error.wav");
 
   title = new UILabel("title", 20, 18, 360, 38,
-    "SimpleUI 0.7.0 · Android + audio", 19);
+    "SimpleUI 0.7.2 · Android + audio", 19);
   audioStatus = new UILabel("audioStatus", 20, 58, 360, 34, "", 14);
   positionStatus = new UILabel("position", 20, 92, 360, 30, "", 13);
   audioIndicator = new UIIndicator("audioIndicator", 352, 23, 24);
